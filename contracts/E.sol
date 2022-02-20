@@ -34,21 +34,20 @@ pragma solidity ^0.8.9;
 @@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@
 harry830622 @@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@*/
 
-import "@openzeppelin/contracts/utils/Context.sol";
 import "@openzeppelin/contracts/access/Ownable.sol";
 import "erc721a/contracts/ERC721A.sol";
 import "@openzeppelin/contracts/token/common/ERC2981.sol";
 
 import "./Randomizer.sol";
 
-contract E is Context, Ownable, ERC721A, ERC2981 {
+contract E is Ownable, ERC721A, ERC2981 {
     string private _baseTokenURI = ""; // TODO:
 
     Randomizer private immutable _randomizer;
     address private immutable _spirit;
 
     modifier onlySpirit() {
-        require(_msgSender() == _spirit, "Not from spirit");
+        require(msg.sender == _spirit, "Not from spirit");
         _;
     }
 

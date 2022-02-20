@@ -34,7 +34,6 @@ pragma solidity ^0.8.9;
 @@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@
 harry830622 @@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@*/
 
-import "@openzeppelin/contracts/utils/Context.sol";
 import "@openzeppelin/contracts/access/Ownable.sol";
 import "@openzeppelin/contracts/token/ERC1155/ERC1155.sol";
 import "@openzeppelin/contracts/token/common/ERC2981.sol";
@@ -44,7 +43,7 @@ import "@openzeppelin/contracts/utils/cryptography/ECDSA.sol";
 
 import "./E.sol";
 
-contract Spirit is Context, Ownable, ERC1155, ERC2981 {
+contract Spirit is Ownable, ERC1155, ERC2981 {
     using BitMaps for BitMaps.BitMap;
 
     uint256 public constant MAX_NUM_TOTAL_SUPPLY = 9999;
@@ -73,7 +72,7 @@ contract Spirit is Context, Ownable, ERC1155, ERC2981 {
     E private _e;
 
     modifier onlyEOA() {
-        require(_msgSender() == tx.origin, "Not from EOA");
+        require(msg.sender == tx.origin, "Not from EOA");
         _;
     }
 
@@ -149,9 +148,7 @@ contract Spirit is Context, Ownable, ERC1155, ERC2981 {
         require(isClaimingEnabled, "Not enabled");
         require(!_isClaimed.get(index), "Already claimed");
 
-        bytes32 leaf = keccak256(
-            abi.encodePacked(_msgSender(), quantity, index)
-        );
+        bytes32 leaf = keccak256(abi.encodePacked(msg.sender, quantity, index));
         require(
             MerkleProof.verify(merkleProof, merkleRootForClaiming, leaf),
             "Invalid proof"
@@ -160,7 +157,7 @@ contract Spirit is Context, Ownable, ERC1155, ERC2981 {
         currNumMintedTokens += quantity;
 
         _isClaimed.set(index);
-        _mint(_msgSender(), 1, quantity, "");
+        _mint(msg.sender, 1, quantity, "");
     }
 
     function emWhitelistMint(
@@ -172,18 +169,18 @@ contract Spirit is Context, Ownable, ERC1155, ERC2981 {
         require(isWhitelistMintingEnabled, "Not enabled");
         require(msg.value >= quantity * PRICE_PER_TOKEN, "Not enough ETH");
         require(
-            addressToNumMintedEmWhitelists[_msgSender()] + quantity <=
+            addressToNumMintedEmWhitelists[msg.sender] + quantity <=
                 maxQuantity,
             "Not enough quota"
         );
         require(
-            _em.balanceOf(_msgSender(), 0) + _em.balanceOf(_msgSender(), 1) >=
+            _em.balanceOf(msg.sender, 0) + _em.balanceOf(msg.sender, 1) >=
                 snapshotedEmQuantity,
             "Disqualified due to paper hand"
         );
 
         bytes32 leaf = keccak256(
-            abi.encodePacked(_msgSender(), maxQuantity, snapshotedEmQuantity)
+            abi.encodePacked(msg.sender, maxQuantity, snapshotedEmQuantity)
         );
         require(
             MerkleProof.verify(
@@ -196,8 +193,8 @@ contract Spirit is Context, Ownable, ERC1155, ERC2981 {
 
         currNumMintedTokens += quantity;
 
-        addressToNumMintedEmWhitelists[_msgSender()] += quantity;
-        _mint(_msgSender(), 1, quantity, "");
+        addressToNumMintedEmWhitelists[msg.sender] += quantity;
+        _mint(msg.sender, 1, quantity, "");
     }
 
     function whitelistMint(
@@ -208,12 +205,11 @@ contract Spirit is Context, Ownable, ERC1155, ERC2981 {
         require(isWhitelistMintingEnabled, "Not enabled");
         require(msg.value >= quantity * PRICE_PER_TOKEN, "Not enough ETH");
         require(
-            addressToNumMintedWhitelists[_msgSender()] + quantity <=
-                maxQuantity,
+            addressToNumMintedWhitelists[msg.sender] + quantity <= maxQuantity,
             "Not enough quota"
         );
 
-        bytes32 leaf = keccak256(abi.encodePacked(_msgSender(), maxQuantity));
+        bytes32 leaf = keccak256(abi.encodePacked(msg.sender, maxQuantity));
         require(
             MerkleProof.verify(
                 merkleProof,
@@ -225,8 +221,8 @@ contract Spirit is Context, Ownable, ERC1155, ERC2981 {
 
         currNumMintedTokens += quantity;
 
-        addressToNumMintedWhitelists[_msgSender()] += quantity;
-        _mint(_msgSender(), 1, quantity, "");
+        addressToNumMintedWhitelists[msg.sender] += quantity;
+        _mint(msg.sender, 1, quantity, "");
     }
 
     function mint(
@@ -243,20 +239,20 @@ contract Spirit is Context, Ownable, ERC1155, ERC2981 {
         require(currNumMintedTokens <= MAX_NUM_TOTAL_SUPPLY, "Sold out");
 
         bytes32 hash = ECDSA.toEthSignedMessageHash(
-            keccak256(abi.encodePacked(_msgSender(), index))
+            keccak256(abi.encodePacked(msg.sender, index))
         );
         require(ECDSA.recover(hash, signature) == _signer, "Invalid signature");
 
         _isMinted.set(index);
-        _mint(_msgSender(), 1, quantity, "");
+        _mint(msg.sender, 1, quantity, "");
     }
 
     function migrate(uint256 quantity) external onlyEOA {
         require(isMigratingEnabled, "Not enabled");
 
-        _burn(_msgSender(), 1, quantity);
+        _burn(msg.sender, 1, quantity);
 
-        _e.mint(_msgSender(), quantity);
+        _e.mint(msg.sender, quantity);
     }
 
     function devMint(address to, uint256 quantity) external onlyOwner {
@@ -266,6 +262,6 @@ contract Spirit is Context, Ownable, ERC1155, ERC2981 {
     }
 
     function withdraw(uint256 amount) external onlyOwner {
-        payable(_msgSender()).transfer(amount);
+        payable(msg.sender).transfer(amount);
     }
 }
