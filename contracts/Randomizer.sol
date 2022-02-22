@@ -43,8 +43,9 @@ contract Randomizer is Ownable, VRFConsumerBase {
     uint256 private constant _fee = 2 * 10**18;
 
     uint16[10000] public tokenIdToMetadataId;
+    bytes32 private _seedForTokenIdToMetadataIdRequestId;
 
-    event Seed(uint256 seed);
+    event SeedForTokenIdToMetadataId(uint256 seed);
 
     constructor()
         VRFConsumerBase(
@@ -52,6 +53,22 @@ contract Randomizer is Ownable, VRFConsumerBase {
             0x514910771AF9Ca656af840dff83E8264EcF986CA
         )
     {}
+
+    function seedForTokenIdToMetadataId() external onlyOwner {
+        _seedForTokenIdToMetadataIdRequestId = _getRandomNumber();
+    }
+
+    function _getRandomNumber() internal returns (bytes32 requestId) {
+        require(LINK.balanceOf(address(this)) >= _fee, "Not enough LINK");
+        return requestRandomness(_keyHash, _fee);
+    }
+
+    function fulfillRandomness(bytes32 requestId, uint256 randomness)
+        internal
+        override
+    {
+        emit SeedForTokenIdToMetadataId(randomness);
+    }
 
     function setTokenIdToMetadataId(uint16[10000] calldata tokenIdToMetadataId_)
         external
@@ -61,18 +78,6 @@ contract Randomizer is Ownable, VRFConsumerBase {
         for (uint256 i = 0; i < len; ++i) {
             tokenIdToMetadataId[i] = tokenIdToMetadataId_[i];
         }
-    }
-
-    function getRandomNumber() external onlyOwner returns (bytes32 requestId) {
-        require(LINK.balanceOf(address(this)) >= _fee, "Not enough LINK");
-        return requestRandomness(_keyHash, _fee);
-    }
-
-    function fulfillRandomness(bytes32 requestId, uint256 randomness)
-        internal
-        override
-    {
-        emit Seed(randomness);
     }
 
     function withdrawLINK(address to) external onlyOwner {

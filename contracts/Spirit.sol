@@ -36,6 +36,7 @@ harry830622 @@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@*/
 
 import "@openzeppelin/contracts/access/Ownable.sol";
 import "@openzeppelin/contracts/token/ERC1155/ERC1155.sol";
+import "@openzeppelin/contracts/token/ERC1155/extensions/ERC1155Burnable.sol";
 import "@openzeppelin/contracts/token/common/ERC2981.sol";
 import "@openzeppelin/contracts/utils/cryptography/MerkleProof.sol";
 import "@openzeppelin/contracts/utils/structs/BitMaps.sol";
@@ -43,10 +44,10 @@ import "@openzeppelin/contracts/utils/cryptography/ECDSA.sol";
 
 import "./E.sol";
 
-contract Spirit is Ownable, ERC1155, ERC2981 {
+contract Spirit is Ownable, ERC1155, ERC1155Burnable, ERC2981 {
     using BitMaps for BitMaps.BitMap;
 
-    uint256 public constant MAX_NUM_TOTAL_SUPPLY = 9999;
+    uint256 public constant MAX_TOTAL_SUPPLY = 9999;
     uint256 public constant MAX_NUM_MINTS_PER_TX = 5;
     uint256 public constant PRICE_PER_TOKEN = 0.15 ether;
 
@@ -236,7 +237,7 @@ contract Spirit is Ownable, ERC1155, ERC2981 {
         require(quantity < MAX_NUM_MINTS_PER_TX, "Over limit");
 
         currNumMintedTokens += quantity;
-        require(currNumMintedTokens <= MAX_NUM_TOTAL_SUPPLY, "Sold out");
+        require(currNumMintedTokens <= MAX_TOTAL_SUPPLY, "Sold out");
 
         bytes32 hash = ECDSA.toEthSignedMessageHash(
             keccak256(abi.encodePacked(msg.sender, index))
@@ -250,7 +251,7 @@ contract Spirit is Ownable, ERC1155, ERC2981 {
     function migrate(uint256 quantity) external onlyEOA {
         require(isMigratingEnabled, "Not enabled");
 
-        _burn(msg.sender, 1, quantity);
+        burn(msg.sender, 1, quantity);
 
         _e.mint(msg.sender, quantity);
     }
