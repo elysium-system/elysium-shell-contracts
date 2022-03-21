@@ -35,25 +35,43 @@ pragma solidity ^0.8.9;
 harry830622 @@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@*/
 
 import "@openzeppelin/contracts/access/Ownable.sol";
-import "erc721a/contracts/ERC721A.sol";
+import "erc721a/contracts/extensions/ERC721ABurnable.sol";
 import "@openzeppelin/contracts/token/common/ERC2981.sol";
+import "@openzeppelin/contracts/utils/structs/BitMaps.sol";
 
-import "./Randomizer.sol";
+interface IRandomizer {
+    function shellTokenIdToMetadataId(uint256 tokenId)
+        external
+        view
+        returns (uint256);
+}
 
-contract E is Ownable, ERC721A, ERC2981 {
+error NotCode();
+error NotOwner();
+error InvalidToken();
+
+contract Shell is Ownable, ERC721ABurnable, ERC2981 {
+    using BitMaps for BitMaps.BitMap;
+
     string private _baseTokenURI = ""; // TODO:
 
-    Randomizer private immutable _randomizer;
-    address private immutable _spirit;
+    BitMaps.BitMap private _isTokenInvalid;
 
-    modifier onlySpirit() {
-        require(msg.sender == _spirit, "Not from spirit");
+    IRandomizer private immutable _randomizer;
+    address private immutable _code;
+
+    modifier onlyCode() {
+        if (msg.sender != _code) {
+            revert NotCode();
+        }
         _;
     }
 
-    constructor(address randomizer, address spirit) ERC721A("E", "E") {
-        _randomizer = Randomizer(randomizer);
-        _spirit = spirit;
+    constructor(address randomizer, address code)
+        ERC721A("Elysium Shell", "ES")
+    {
+        _randomizer = IRandomizer(randomizer);
+        _code = code;
 
         // TODO: Update royalty info
         _setDefaultRoyalty(address(0x0), 1000);
@@ -68,29 +86,40 @@ contract E is Ownable, ERC721A, ERC2981 {
         return super.supportsInterface(interfaceId);
     }
 
+    function _startTokenId() internal pure override returns (uint256) {
+        return 1;
+    }
+
     function tokenURI(uint256 tokenId)
         public
         view
         override
         returns (string memory)
     {
-        require(
-            _exists(tokenId),
-            "ERC721Metadata: URI query for nonexistent token"
-        );
+        if (!_exists(tokenId)) {
+            revert URIQueryForNonexistentToken();
+        }
+
+        uint256 metadataId = _metadataId(tokenId);
+        if (metadataId == tokenId) {
+            return ""; // TODO:
+        }
+
+        if (_isTokenInvalid.get(tokenId)) {
+            return ""; // TODO:
+        }
 
         string memory baseURI = _baseURI();
         return
             bytes(baseURI).length > 0
                 ? string(
-                    abi.encodePacked(
-                        baseURI,
-                        Strings.toString(
-                            _randomizer.tokenIdToMetadataId(tokenId)
-                        )
-                    )
+                    abi.encodePacked(baseURI, Strings.toString(metadataId))
                 )
                 : "";
+    }
+
+    function _metadataId(uint256 tokenId) internal view returns (uint256) {
+        return _randomizer.shellTokenIdToMetadataId(tokenId);
     }
 
     function _baseURI() internal view override returns (string memory) {
@@ -116,7 +145,54 @@ contract E is Ownable, ERC721A, ERC2981 {
         _setTokenRoyalty(tokenId, receiver, feeNumerator);
     }
 
-    function mint(address to, uint256 quantity) external onlySpirit {
+    function nextTokenId() external view returns (uint256) {
+        return _currentIndex;
+    }
+
+    function numMintedOf(address owner) external view returns (uint256) {
+        return _numberMinted(owner);
+    }
+
+    function numBurnedOf(address owner) external view returns (uint256) {
+        return _numberBurned(owner);
+    }
+
+    function mint(address to, uint256 quantity) external onlyCode {
         _mint(to, quantity, "", false);
+    }
+
+    function setTokenInvalid(uint256 tokenId, address owner) external onlyCode {
+        TokenOwnership memory ownership = _ownershipOf(tokenId);
+        if (owner != ownership.addr) {
+            revert NotOwner();
+        }
+
+        _isTokenInvalid.set(tokenId);
+    }
+
+    function setTokenValid(uint256 tokenId, address owner) external onlyCode {
+        TokenOwnership memory ownership = _ownershipOf(tokenId);
+        if (owner != ownership.addr) {
+            revert NotOwner();
+        }
+
+        _isTokenInvalid.unset(tokenId);
+    }
+
+    function _beforeTokenTransfers(
+        address from,
+        address to,
+        uint256 startTokenId,
+        uint256 quantity
+    ) internal override {
+        for (
+            uint256 tokenId = startTokenId;
+            tokenId < startTokenId + quantity;
+            ++tokenId
+        ) {
+            if (_isTokenInvalid.get(tokenId)) {
+                revert InvalidToken();
+            }
+        }
     }
 }

@@ -38,14 +38,18 @@ import "@openzeppelin/contracts/access/Ownable.sol";
 import "@chainlink/contracts/src/v0.8/VRFConsumerBase.sol";
 
 contract Randomizer is Ownable, VRFConsumerBase {
-    bytes32 private constant _keyHash =
+    bytes32 private constant _KEY_HASH =
         0xAA77729D3466CA35AE8D28B3BBAC7CC36A5031EFDC430821C02BC31A238AF445;
-    uint256 private constant _fee = 2 * 10**18;
+    uint256 private constant _FEE = 2 * 10**18;
 
-    uint16[10000] public tokenIdToMetadataId;
-    bytes32 private _seedForTokenIdToMetadataIdRequestId;
+    uint16[10000] public shellTokenIdToMetadataId;
+    bytes32 private _seedForShellTokenIdToMetadataIdRequestId;
 
-    event SeedForTokenIdToMetadataId(uint256 seed);
+    uint16[10000] public recodedShellTokenIdToMetadataId;
+    bytes32 private _seedForRecodedShellTokenIdToMetadataIdRequestId;
+
+    event SeedForShellTokenIdToMetadataId(uint256 seed);
+    event SeedForRecodedShellTokenIdToMetadataId(uint256 seed);
 
     constructor()
         VRFConsumerBase(
@@ -54,33 +58,57 @@ contract Randomizer is Ownable, VRFConsumerBase {
         )
     {}
 
-    function seedForTokenIdToMetadataId() external onlyOwner {
-        _seedForTokenIdToMetadataIdRequestId = _getRandomNumber();
+    function requestSeedForShellTokenIdToMetadataId() external onlyOwner {
+        _seedForShellTokenIdToMetadataIdRequestId = _requestRandomNumber();
     }
 
-    function _getRandomNumber() internal returns (bytes32 requestId) {
-        require(LINK.balanceOf(address(this)) >= _fee, "Not enough LINK");
-        return requestRandomness(_keyHash, _fee);
+    function requestSeedForRecodedShellTokenIdToMetadataId()
+        external
+        onlyOwner
+    {
+        _seedForRecodedShellTokenIdToMetadataIdRequestId = _requestRandomNumber();
+    }
+
+    function _requestRandomNumber() internal returns (bytes32 requestId) {
+        return requestRandomness(_KEY_HASH, _FEE);
     }
 
     function fulfillRandomness(bytes32 requestId, uint256 randomness)
         internal
         override
     {
-        emit SeedForTokenIdToMetadataId(randomness);
+        if (requestId == _seedForShellTokenIdToMetadataIdRequestId) {
+            emit SeedForShellTokenIdToMetadataId(randomness);
+        }
+
+        if (requestId == _seedForRecodedShellTokenIdToMetadataIdRequestId) {
+            emit SeedForRecodedShellTokenIdToMetadataId(randomness);
+        }
+
+        revert();
     }
 
-    function setTokenIdToMetadataId(uint16[10000] calldata tokenIdToMetadataId_)
-        external
-        onlyOwner
-    {
-        uint256 len = tokenIdToMetadataId_.length;
+    function setShellTokenIdToMetadataId(
+        uint16[10000] calldata shellTokenIdToMetadataId_
+    ) external onlyOwner {
+        uint256 len = shellTokenIdToMetadataId_.length;
         for (uint256 i = 0; i < len; ++i) {
-            tokenIdToMetadataId[i] = tokenIdToMetadataId_[i];
+            shellTokenIdToMetadataId[i] = shellTokenIdToMetadataId_[i];
         }
     }
 
-    function withdrawLINK(address to) external onlyOwner {
-        LINK.transfer(to, LINK.balanceOf(address(this)));
+    function setRecodedShellTokenIdToMetadataId(
+        uint16[10000] calldata recodedShellTokenIdToMetadataId_
+    ) external onlyOwner {
+        uint256 len = recodedShellTokenIdToMetadataId_.length;
+        for (uint256 i = 0; i < len; ++i) {
+            recodedShellTokenIdToMetadataId[
+                i
+            ] = recodedShellTokenIdToMetadataId_[i];
+        }
+    }
+
+    function withdrawLINK(uint256 amount) external onlyOwner {
+        LINK.transfer(msg.sender, amount);
     }
 }
