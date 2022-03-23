@@ -61,9 +61,9 @@ interface IShell {
 
     function mint(address to, uint256 quantity) external;
 
-    function setTokenInvalid(uint256 tokenId, address owner) external;
+    function setTokenInvalid(uint256 tokenId) external;
 
-    function setTokenValid(uint256 tokenId, address owner) external;
+    function setTokenValid(uint256 tokenId) external;
 }
 
 interface IRecodedShell {
@@ -73,7 +73,7 @@ interface IRecodedShell {
 
     function mint(address to, uint256 quantity) external;
 
-    function setTokenValid(uint256 tokenId, address owner) external;
+    function setTokenValid(uint256 tokenId) external;
 }
 
 contract Code is Ownable, ERC1155, ERC1155Burnable, ERC2981 {
@@ -399,7 +399,7 @@ contract Code is Ownable, ERC1155, ERC1155Burnable, ERC2981 {
 
         uint256 newShellTokenId = _shell.nextTokenId();
         _shell.mint(msg.sender, 1);
-        _shell.setTokenInvalid(newShellTokenId, msg.sender);
+        _shell.setTokenInvalid(newShellTokenId);
 
         uint256 newRecodedShellTokenId = _recodedShell.nextTokenId();
         _recodedShell.mint(msg.sender, 1);
@@ -417,7 +417,6 @@ contract Code is Ownable, ERC1155, ERC1155Burnable, ERC2981 {
         uint256 newShellTokenId,
         uint256 newRecodedShellTokenId,
         bool isNewShellOneOfOne,
-        bool isNewRecodedShellOneOfOne,
         bytes calldata signature
     ) external onlyEOA {
         uint256 blockTime = block.timestamp;
@@ -431,11 +430,11 @@ contract Code is Ownable, ERC1155, ERC1155Burnable, ERC2981 {
         bytes32 hash = ECDSA.toEthSignedMessageHash(
             keccak256(
                 abi.encodePacked(
+                    msg.sender,
                     shellTokenId,
                     newShellTokenId,
-                    isNewShellOneOfOne,
                     newRecodedShellTokenId,
-                    isNewRecodedShellOneOfOne
+                    isNewShellOneOfOne
                 )
             )
         );
@@ -443,20 +442,13 @@ contract Code is Ownable, ERC1155, ERC1155Burnable, ERC2981 {
             revert InvalidSignature();
         }
 
-        if (isNewShellOneOfOne && isNewRecodedShellOneOfOne) {
-            _shell.setTokenValid(newShellTokenId, msg.sender);
-            _recodedShell.setTokenValid(newRecodedShellTokenId, msg.sender);
-            return;
-        }
+        _recodedShell.setTokenValid(newRecodedShellTokenId);
 
         if (isNewShellOneOfOne) {
-            _shell.setTokenValid(newShellTokenId, msg.sender);
-            _recodedShell.burn(newRecodedShellTokenId);
-            return;
+            _shell.setTokenValid(newShellTokenId);
+        } else {
+            _shell.burn(newShellTokenId);
         }
-
-        _shell.burn(newShellTokenId);
-        _recodedShell.setTokenValid(newRecodedShellTokenId, msg.sender);
     }
 
     function withdraw(uint256 amount) external onlyOwner {

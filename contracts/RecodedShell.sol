@@ -47,7 +47,6 @@ interface IRandomizer {
 }
 
 error NotCode();
-error NotOwner();
 error InvalidToken();
 
 contract RecodedShell is Ownable, ERC721ABurnable, ERC2981 {
@@ -161,12 +160,7 @@ contract RecodedShell is Ownable, ERC721ABurnable, ERC2981 {
         _mint(to, quantity, "", false);
     }
 
-    function setTokenValid(uint256 tokenId, address owner) external onlyCode {
-        TokenOwnership memory ownership = _ownershipOf(tokenId);
-        if (owner != ownership.addr) {
-            revert NotOwner();
-        }
-
+    function setTokenValid(uint256 tokenId) external onlyCode {
         _isTokenValid.set(tokenId);
     }
 
