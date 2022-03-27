@@ -98,7 +98,7 @@ contract Code is Ownable, ERC1155, ERC1155Burnable, ERC2981 {
     uint256 public migrationEndTime = 2**256 - 1;
     uint256 public recodingEndTime = 2**256 - 1;
 
-    bytes32 public merkleRootForFreeMint;
+    bytes32 public freeMintMerkleTreeRoot;
     bytes32 public merkleRootForWhitelistMint;
     bytes32 public merkleRootForEmWhitelistMint;
 
@@ -107,10 +107,10 @@ contract Code is Ownable, ERC1155, ERC1155Burnable, ERC2981 {
     mapping(address => uint256) public addressToNumMintedEmWhitelists;
     BitMaps.BitMap private _isPublicMintTicketUsed;
 
-    uint256 public totalNumMintedTokens = 0;
+    uint256 public totalNumMintedTokens;
 
-    address private immutable _signer;
     IERC1155 private immutable _em;
+    address private _signer;
     IShell private _shell;
     IRecodedShell private _recodedShell;
 
@@ -129,17 +129,11 @@ contract Code is Ownable, ERC1155, ERC1155Burnable, ERC2981 {
     }
 
     // TODO: Update uri
-    constructor(address em, address signer) ERC1155("") {
+    constructor(address em) ERC1155("") {
         _em = IERC1155(em);
-        _signer = signer;
 
         // TODO: Update royalty info
-        _setDefaultRoyalty(address(0x0), 1000);
-
-        // TODO:
-        uint256 tokensToReserve = 999;
-        totalNumMintedTokens = tokensToReserve;
-        _mint(msg.sender, TOKEN_ID, tokensToReserve, "");
+        // _setDefaultRoyalty(address(0x0), 1000);
     }
 
     function supportsInterface(bytes4 interfaceId)
@@ -158,8 +152,12 @@ contract Code is Ownable, ERC1155, ERC1155Burnable, ERC2981 {
         _setDefaultRoyalty(receiver, feeNumerator);
     }
 
-    function setMerkleRootForFreeMint(bytes32 root) external onlyOwner {
-        merkleRootForFreeMint = root;
+    function setSigner(address addr) external onlyOwner {
+        _signer = addr;
+    }
+
+    function setFreeMintMerkleTreeRoot(bytes32 root) external onlyOwner {
+        freeMintMerkleTreeRoot = root;
     }
 
     function setMerkleRootForWhitelistMint(bytes32 root) external onlyOwner {
@@ -232,7 +230,7 @@ contract Code is Ownable, ERC1155, ERC1155Burnable, ERC2981 {
         bytes32 leaf = keccak256(
             abi.encodePacked(msg.sender, quantity, ticket)
         );
-        if (!MerkleProof.verify(merkleProof, merkleRootForFreeMint, leaf)) {
+        if (!MerkleProof.verify(merkleProof, freeMintMerkleTreeRoot, leaf)) {
             revert InvalidProof();
         }
 
@@ -451,7 +449,7 @@ contract Code is Ownable, ERC1155, ERC1155Burnable, ERC2981 {
         }
     }
 
-    function withdraw(uint256 amount) external onlyOwner {
-        payable(msg.sender).transfer(amount);
+    function withdraw(address to, uint256 amount) external onlyOwner {
+        payable(to).transfer(amount);
     }
 }

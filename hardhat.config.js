@@ -28,6 +28,12 @@ module.exports = {
         mnemonic: process.env.MNEMONIC,
       },
     },
+    hardhat: {
+      forking: {
+        url: process.env.MAINNET_RPC_URL,
+        blockNumber: 14463387,
+      },
+    },
   },
   gasReporter: {
     enabled: process.env.REPORT_GAS !== undefined,
