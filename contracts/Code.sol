@@ -46,11 +46,11 @@ error NotEOA();
 error NotStarted();
 error Ended();
 error TicketUsed();
-error InvalidProof();
 error NotEnoughETH();
 error NotEnoughQuota();
 error PaperHand();
 error MintTooManyAtOnce();
+error ZeroQuantity();
 error SoldOut();
 error InvalidSignature();
 
@@ -84,23 +84,15 @@ contract Code is Ownable, ERC1155, ERC1155Burnable, ERC2981 {
     uint256 public constant PRICE_PER_TOKEN = 0.15 ether;
     uint256 public constant TOKEN_ID = 1;
 
-    uint256 public freeMintStartTime = 2**256 - 1;
-    uint256 public whitelistMintStartTime = 2**256 - 1;
-    uint256 public emWhitelistMintStartTime = 2**256 - 1;
+    uint256 public preSaleMintStartTime = 2**256 - 1;
     uint256 public publicMintStartTime = 2**256 - 1;
     uint256 public migrationStartTime = 2**256 - 1;
     uint256 public recodingStartTime = 2**256 - 1;
 
-    uint256 public freeMintEndTime = 2**256 - 1;
-    uint256 public whitelistMintEndTime = 2**256 - 1;
-    uint256 public emWhitelistMintEndTime = 2**256 - 1;
+    uint256 public preSaleMintEndTime = 2**256 - 1;
     uint256 public publicMintEndTime = 2**256 - 1;
     uint256 public migrationEndTime = 2**256 - 1;
     uint256 public recodingEndTime = 2**256 - 1;
-
-    bytes32 public freeMintMerkleTreeRoot;
-    bytes32 public merkleRootForWhitelistMint;
-    bytes32 public merkleRootForEmWhitelistMint;
 
     BitMaps.BitMap private _isFreeMintTicketUsed;
     mapping(address => uint256) public addressToNumMintedWhitelists;
@@ -156,46 +148,23 @@ contract Code is Ownable, ERC1155, ERC1155Burnable, ERC2981 {
         _signer = addr;
     }
 
-    function setFreeMintMerkleTreeRoot(bytes32 root) external onlyOwner {
-        freeMintMerkleTreeRoot = root;
-    }
-
-    function setMerkleRootForWhitelistMint(bytes32 root) external onlyOwner {
-        merkleRootForWhitelistMint = root;
-    }
-
-    function setMerkleRootForEmWhitelistMint(bytes32 root) external onlyOwner {
-        merkleRootForEmWhitelistMint = root;
-    }
-
-    function setFreeMintTime(uint256 start, uint256 end) external onlyOwner {
+    function setPreSaleMintTime(uint256 start, uint256 end) external onlyOwner {
         if (end <= start) {
             revert();
         }
-        freeMintStartTime = start;
-        freeMintEndTime = end;
+        preSaleMintStartTime = start;
+        preSaleMintEndTime = end;
     }
 
-    function setWhitelistMintTime(uint256 start, uint256 end)
+    function setPublicSaleMintTime(uint256 start, uint256 end)
         external
         onlyOwner
     {
         if (end <= start) {
             revert();
         }
-        whitelistMintStartTime = start;
-        whitelistMintEndTime = end;
-    }
-
-    function setEmWhitelistMintTime(uint256 start, uint256 end)
-        external
-        onlyOwner
-    {
-        if (end <= start) {
-            revert();
-        }
-        emWhitelistMintStartTime = start;
-        emWhitelistMintEndTime = end;
+        publicMintStartTime = start;
+        publicMintEndTime = end;
     }
 
     function setMigrationTime(uint256 start, uint256 end) external onlyOwner {
@@ -206,6 +175,14 @@ contract Code is Ownable, ERC1155, ERC1155Burnable, ERC2981 {
         migrationEndTime = end;
     }
 
+    function setRecodingTime(uint256 start, uint256 end) external onlyOwner {
+        if (end <= start) {
+            revert();
+        }
+        recodingStartTime = start;
+        recodingEndTime = end;
+    }
+
     function setShell(address addr) external onlyOwner {
         _shell = IShell(addr);
     }
@@ -214,121 +191,103 @@ contract Code is Ownable, ERC1155, ERC1155Burnable, ERC2981 {
         _recodedShell = IRecodedShell(addr);
     }
 
-    function freeMint(
-        uint256 quantity,
-        uint256 ticket,
-        bytes32[] calldata merkleProof
-    ) external onlyEOA {
-        uint256 blockTime = block.timestamp;
-        if (blockTime < freeMintStartTime) {
-            revert NotStarted();
-        }
-        if (blockTime >= freeMintEndTime) {
-            revert Ended();
-        }
-
-        bytes32 leaf = keccak256(
-            abi.encodePacked(msg.sender, quantity, ticket)
-        );
-        if (!MerkleProof.verify(merkleProof, freeMintMerkleTreeRoot, leaf)) {
-            revert InvalidProof();
-        }
-
-        if (_isFreeMintTicketUsed.get(ticket)) {
-            revert TicketUsed();
-        }
-        _isFreeMintTicketUsed.set(ticket);
-
-        totalNumMintedTokens += quantity;
-
-        _mint(msg.sender, TOKEN_ID, quantity, "");
-    }
-
-    function whitelistMint(
-        uint256 quantity,
-        uint256 allowedQuantity,
-        bytes32[] calldata merkleProof
-    ) external payable onlyEOA {
-        uint256 blockTime = block.timestamp;
-        if (blockTime < whitelistMintStartTime) {
-            revert NotStarted();
-        }
-        if (blockTime >= whitelistMintEndTime) {
-            revert Ended();
-        }
-
-        if (msg.value < quantity * PRICE_PER_TOKEN) {
-            revert NotEnoughETH();
-        }
-
-        bytes32 leaf = keccak256(abi.encodePacked(msg.sender, allowedQuantity));
-        if (
-            !MerkleProof.verify(merkleProof, merkleRootForWhitelistMint, leaf)
-        ) {
-            revert InvalidProof();
-        }
-
-        if (
-            addressToNumMintedWhitelists[msg.sender] + quantity >
-            allowedQuantity
-        ) {
-            revert NotEnoughQuota();
-        }
-        addressToNumMintedWhitelists[msg.sender] += quantity;
-
-        totalNumMintedTokens += quantity;
-
-        _mint(msg.sender, TOKEN_ID, quantity, "");
-    }
-
-    function emWhitelistMint(
-        uint256 quantity,
-        uint256 allowedQuantity,
+    function preSaleMint(
+        uint256 freeMintQuantity,
+        uint256 freeMintTicket,
+        uint256 whitelistMintQuantity,
+        uint256 whitelistMintAllowedQuantity,
+        uint256 emWhitelistMintQuantity,
+        uint256 emWhitelistMintAllowedQuantity,
         uint256 snapshotedEmQuantity,
-        bytes32[] calldata merkleProof
+        bytes calldata signature
     ) external payable onlyEOA {
         uint256 blockTime = block.timestamp;
-        if (blockTime < emWhitelistMintStartTime) {
+        if (blockTime < preSaleMintStartTime) {
             revert NotStarted();
         }
-        if (blockTime >= emWhitelistMintEndTime) {
+        if (blockTime >= preSaleMintEndTime) {
             revert Ended();
         }
 
-        if (msg.value < quantity * PRICE_PER_TOKEN) {
-            revert NotEnoughETH();
+        uint256 quantity = freeMintQuantity +
+            whitelistMintQuantity +
+            emWhitelistMintQuantity;
+        if (quantity == 0) {
+            revert ZeroQuantity();
         }
-
-        bytes32 leaf = keccak256(
-            abi.encodePacked(msg.sender, allowedQuantity, snapshotedEmQuantity)
-        );
-        if (
-            !MerkleProof.verify(merkleProof, merkleRootForEmWhitelistMint, leaf)
-        ) {
-            revert InvalidProof();
+        if (totalNumMintedTokens + quantity > MAX_TOTAL_SUPPLY) {
+            revert SoldOut();
         }
-
-        if (
-            addressToNumMintedEmWhitelists[msg.sender] + quantity >
-            allowedQuantity
-        ) {
-            revert NotEnoughQuota();
-        }
-        addressToNumMintedEmWhitelists[msg.sender] += quantity;
-
-        if (
-            _em.balanceOf(msg.sender, 0) + _em.balanceOf(msg.sender, 1) <
-            snapshotedEmQuantity
-        ) {
-            revert PaperHand();
-        }
-
         totalNumMintedTokens += quantity;
+
+        bytes32 hash = ECDSA.toEthSignedMessageHash(
+            keccak256(
+                abi.encodePacked(
+                    msg.sender,
+                    freeMintQuantity,
+                    freeMintTicket,
+                    whitelistMintAllowedQuantity,
+                    emWhitelistMintAllowedQuantity,
+                    snapshotedEmQuantity
+                )
+            )
+        );
+        if (ECDSA.recover(hash, signature) != _signer) {
+            revert InvalidSignature();
+        }
+
+        if (freeMintQuantity > 0) {
+            if (_isFreeMintTicketUsed.get(freeMintTicket)) {
+                revert TicketUsed();
+            }
+            _isFreeMintTicketUsed.set(freeMintTicket);
+        }
+
+        if (whitelistMintQuantity + emWhitelistMintQuantity > 0) {
+            if (
+                msg.value <
+                (whitelistMintQuantity + emWhitelistMintQuantity) *
+                    PRICE_PER_TOKEN
+            ) {
+                revert NotEnoughETH();
+            }
+        }
+
+        if (whitelistMintQuantity > 0) {
+            if (
+                addressToNumMintedWhitelists[msg.sender] +
+                    whitelistMintQuantity >
+                whitelistMintAllowedQuantity
+            ) {
+                revert NotEnoughQuota();
+            }
+            addressToNumMintedWhitelists[msg.sender] += whitelistMintQuantity;
+        }
+
+        if (emWhitelistMintQuantity > 0) {
+            if (
+                addressToNumMintedEmWhitelists[msg.sender] +
+                    emWhitelistMintQuantity >
+                emWhitelistMintAllowedQuantity
+            ) {
+                revert NotEnoughQuota();
+            }
+            addressToNumMintedEmWhitelists[
+                msg.sender
+            ] += emWhitelistMintQuantity;
+
+            if (
+                _em.balanceOf(msg.sender, 0) + _em.balanceOf(msg.sender, 1) <
+                snapshotedEmQuantity
+            ) {
+                revert PaperHand();
+            }
+        }
 
         _mint(msg.sender, TOKEN_ID, quantity, "");
     }
 
-    function publicMint(
+    function publicSaleMint(
         uint256 quantity,
         uint256 ticket,
         bytes calldata signature
@@ -349,6 +308,9 @@ contract Code is Ownable, ERC1155, ERC1155Burnable, ERC2981 {
             revert MintTooManyAtOnce();
         }
 
+        if (quantity == 0) {
+            revert ZeroQuantity();
+        }
         if (totalNumMintedTokens + quantity > MAX_TOTAL_SUPPLY) {
             revert SoldOut();
         }
