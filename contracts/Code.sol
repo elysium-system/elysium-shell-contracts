@@ -209,17 +209,6 @@ contract Code is Ownable, ERC1155, ERC1155Burnable, ERC2981 {
             revert Ended();
         }
 
-        uint256 quantity = freeMintQuantity +
-            whitelistMintQuantity +
-            emWhitelistMintQuantity;
-        if (quantity == 0) {
-            revert ZeroQuantity();
-        }
-        if (totalNumMintedTokens + quantity > MAX_TOTAL_SUPPLY) {
-            revert SoldOut();
-        }
-        totalNumMintedTokens += quantity;
-
         bytes32 hash = ECDSA.toEthSignedMessageHash(
             keccak256(
                 abi.encodePacked(
@@ -284,6 +273,17 @@ contract Code is Ownable, ERC1155, ERC1155Burnable, ERC2981 {
             }
         }
 
+        uint256 quantity = freeMintQuantity +
+            whitelistMintQuantity +
+            emWhitelistMintQuantity;
+        if (quantity == 0) {
+            revert ZeroQuantity();
+        }
+        if (totalNumMintedTokens + quantity > MAX_TOTAL_SUPPLY) {
+            revert SoldOut();
+        }
+        totalNumMintedTokens += quantity;
+
         _mint(msg.sender, TOKEN_ID, quantity, "");
     }
 
@@ -300,6 +300,18 @@ contract Code is Ownable, ERC1155, ERC1155Burnable, ERC2981 {
             revert Ended();
         }
 
+        bytes32 hash = ECDSA.toEthSignedMessageHash(
+            keccak256(abi.encodePacked(msg.sender, ticket))
+        );
+        if (ECDSA.recover(hash, signature) != _signer) {
+            revert InvalidSignature();
+        }
+
+        if (_isPublicMintTicketUsed.get(ticket)) {
+            revert TicketUsed();
+        }
+        _isPublicMintTicketUsed.set(ticket);
+
         if (msg.value < quantity * PRICE_PER_TOKEN) {
             revert NotEnoughETH();
         }
@@ -315,18 +327,6 @@ contract Code is Ownable, ERC1155, ERC1155Burnable, ERC2981 {
             revert SoldOut();
         }
         totalNumMintedTokens += quantity;
-
-        bytes32 hash = ECDSA.toEthSignedMessageHash(
-            keccak256(abi.encodePacked(msg.sender, ticket))
-        );
-        if (ECDSA.recover(hash, signature) != _signer) {
-            revert InvalidSignature();
-        }
-
-        if (_isPublicMintTicketUsed.get(ticket)) {
-            revert TicketUsed();
-        }
-        _isPublicMintTicketUsed.set(ticket);
 
         _mint(msg.sender, TOKEN_ID, quantity, "");
     }

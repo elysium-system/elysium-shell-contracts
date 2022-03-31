@@ -12,6 +12,12 @@ interface ICode {
         uint256 snapshotedEmQuantity,
         bytes calldata signature
     ) external;
+
+    function publicSaleMint(
+        uint256 quantity,
+        uint256 ticket,
+        bytes calldata signature
+    ) external;
 }
 
 contract Hacker {
@@ -41,5 +47,13 @@ contract Hacker {
             snapshotedEmQuantity,
             signature
         );
+    }
+
+    function hackPublicSaleMint(
+        uint256 quantity,
+        uint256 ticket,
+        bytes calldata signature
+    ) external {
+        _code.publicSaleMint(quantity, ticket, signature);
     }
 }
