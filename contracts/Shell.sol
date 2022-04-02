@@ -56,8 +56,10 @@ contract Shell is Ownable, ERC721ABurnable, ERC2981 {
 
     BitMaps.BitMap private _isTokenInvalid;
 
-    IRandomizer private immutable _randomizer;
     address private immutable _code;
+    IRandomizer private _randomizer;
+
+    bytes32 public provenanceHash;
 
     modifier onlyCode() {
         if (msg.sender != _code) {
@@ -66,14 +68,13 @@ contract Shell is Ownable, ERC721ABurnable, ERC2981 {
         _;
     }
 
-    constructor(address randomizer, address code)
+    constructor(address code)
         ERC721A("Elysium Shell", "ES")
     {
-        _randomizer = IRandomizer(randomizer);
         _code = code;
 
         // TODO: Update royalty info
-        _setDefaultRoyalty(address(0x0), 1000);
+        // _setDefaultRoyalty(address(0x0), 1000);
     }
 
     function supportsInterface(bytes4 interfaceId)
@@ -142,6 +143,10 @@ contract Shell is Ownable, ERC721ABurnable, ERC2981 {
         uint96 feeNumerator
     ) external onlyOwner {
         _setTokenRoyalty(tokenId, receiver, feeNumerator);
+    }
+
+    function setProvenanceHash(bytes32 hash) external onlyOwner {
+        provenanceHash = hash;
     }
 
     function nextTokenId() external view returns (uint256) {

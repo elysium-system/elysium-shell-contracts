@@ -98,7 +98,48 @@ describe('Code', function () {
         await ethers.provider.send('evm_revert', [snapshotId]);
       });
 
-      context('when signer is not set', function () {});
+      context('when signer is not set', function () {
+        beforeEach(async function () {
+          const snapshotId = await ethers.provider.send('evm_snapshot');
+          this.snapshotId = snapshotId;
+
+          const nextBlockTime = new Date();
+          nextBlockTime.setFullYear(2023, 3, 15);
+          nextBlockTime.setHours(21, 0, 1, 0);
+          await ethers.provider.send('evm_setNextBlockTimestamp', [
+            Math.ceil(nextBlockTime / 1000),
+          ]);
+          await ethers.provider.send('evm_mine');
+        });
+
+        afterEach(async function () {
+          await ethers.provider.send('evm_revert', [this.snapshotId]);
+        });
+
+        it('should revert', async function () {
+          const sig = await this.owner.signMessage(
+            ethers.utils.arrayify(
+              ethers.utils.solidityKeccak256(
+                [
+                  'address',
+                  'uint256',
+                  'uint256',
+                  'uint256',
+                  'uint256',
+                  'uint256',
+                ],
+                [this.accountAddrs[0], 0, 0, 0, 0, 0],
+              ),
+            ),
+          );
+
+          await expect(
+            this.code
+              .connect(this.accounts[0])
+              .preSaleMint(0, 0, 0, 0, 0, 0, 0, sig),
+          ).to.be.revertedWith('InvalidSignature');
+        });
+      });
 
       context('when signer is set', function () {
         beforeEach(async function () {
@@ -659,7 +700,39 @@ describe('Code', function () {
         await ethers.provider.send('evm_revert', [snapshotId]);
       });
 
-      context('when signer is not set', function () {});
+      context('when signer is not set', function () {
+        beforeEach(async function () {
+          const snapshotId = await ethers.provider.send('evm_snapshot');
+          this.snapshotId = snapshotId;
+
+          const nextBlockTime = new Date();
+          nextBlockTime.setFullYear(2023, 3, 18);
+          nextBlockTime.setHours(21, 0, 1, 0);
+          await ethers.provider.send('evm_setNextBlockTimestamp', [
+            Math.ceil(nextBlockTime / 1000),
+          ]);
+          await ethers.provider.send('evm_mine');
+        });
+
+        afterEach(async function () {
+          await ethers.provider.send('evm_revert', [this.snapshotId]);
+        });
+
+        it('should revert', async function () {
+          const sig = await this.owner.signMessage(
+            ethers.utils.arrayify(
+              ethers.utils.solidityKeccak256(
+                ['address', 'uint256'],
+                [this.accountAddrs[0], 0],
+              ),
+            ),
+          );
+
+          await expect(
+            this.code.connect(this.accounts[0]).publicSaleMint(0, 0, sig),
+          ).to.be.revertedWith('InvalidSignature');
+        });
+      });
 
       context('when signer is set', function () {
         beforeEach(async function () {
@@ -769,6 +842,172 @@ describe('Code', function () {
               value: this.PRICE_PER_TOKEN.mul(quantity),
             });
           expect(await this.code.balanceOf(this.minterAddr, 1)).to.be.eq(
+            quantity,
+          );
+        });
+      });
+    });
+  });
+
+  describe('#migrate', function () {
+    beforeEach(async function () {
+      const Shell = await ethers.getContractFactory('Shell');
+      // TODO:
+      const shell = await Shell.deploy(this.code.address);
+      await shell.deployed();
+      this.shell = shell;
+
+      this.code.connect(this.owner).setShell(shell.address);
+    });
+
+    it('should revert if not from EOA', async function () {
+      await expect(
+        this.hacker.connect(this.accounts[0]).hackMigrate(0),
+      ).to.be.revertedWith('NotEOA');
+    });
+
+    context('when migration time is not set', function () {
+      it('should revert', async function () {
+        await expect(
+          this.code.connect(this.accounts[0]).migrate(0),
+        ).to.be.revertedWith('NotStarted');
+      });
+    });
+
+    context('when migration time is set', function () {
+      beforeEach(async function () {
+        const migrationStartTime = new Date();
+        migrationStartTime.setFullYear(2023, 3, 21);
+        migrationStartTime.setHours(21, 0, 0, 0);
+        const migrationEndTime = new Date();
+        migrationEndTime.setFullYear(2074, 0, 1);
+        migrationEndTime.setHours(0, 0, 0, 0);
+        await this.code
+          .connect(this.owner)
+          .setMigrationTime(
+            Math.floor(migrationStartTime.getTime() / 1000),
+            Math.floor(migrationEndTime.getTime() / 1000),
+          );
+      });
+
+      it('should revert if migration has not started', async function () {
+        await expect(
+          this.code.connect(this.accounts[0]).migrate(0),
+        ).to.be.revertedWith('NotStarted');
+      });
+
+      it('should revert if migration has ended', async function () {
+        const snapshotId = await ethers.provider.send('evm_snapshot');
+
+        const nextBlockTime = new Date();
+        nextBlockTime.setFullYear(2074, 0, 1);
+        nextBlockTime.setHours(0, 0, 1, 0);
+        await ethers.provider.send('evm_setNextBlockTimestamp', [
+          Math.ceil(nextBlockTime / 1000),
+        ]);
+        await ethers.provider.send('evm_mine');
+
+        await expect(
+          this.code.connect(this.accounts[0]).migrate(0),
+        ).to.be.revertedWith('Ended');
+
+        await ethers.provider.send('evm_revert', [snapshotId]);
+      });
+
+      context('who has no codes', function () {
+        beforeEach(async function () {
+          const snapshotId = await ethers.provider.send('evm_snapshot');
+          this.snapshotId = snapshotId;
+
+          const nextBlockTime = new Date();
+          nextBlockTime.setFullYear(2023, 3, 21);
+          nextBlockTime.setHours(21, 0, 1, 0);
+          await ethers.provider.send('evm_setNextBlockTimestamp', [
+            Math.ceil(nextBlockTime / 1000),
+          ]);
+          await ethers.provider.send('evm_mine');
+        });
+
+        afterEach(async function () {
+          await ethers.provider.send('evm_revert', [this.snapshotId]);
+        });
+
+        it('should revert', async function () {
+          const quantity = 3;
+          await expect(
+            this.code.connect(this.accounts[1]).migrate(quantity),
+          ).to.be.revertedWith('ERC1155: burn amount exceeds balance');
+        });
+      });
+
+      context('who has codes', function () {
+        beforeEach(async function () {});
+
+        beforeEach(async function () {
+          const snapshotId = await ethers.provider.send('evm_snapshot');
+          this.snapshotId = snapshotId;
+
+          await this.code.connect(this.owner).setSigner(this.ownerAddr);
+
+          const publicSaleMintStartTime = new Date();
+          publicSaleMintStartTime.setFullYear(2023, 3, 18);
+          publicSaleMintStartTime.setHours(21, 0, 0, 0);
+          const publicSaleMintEndTime = new Date();
+          publicSaleMintEndTime.setFullYear(2023, 3, 20);
+          publicSaleMintEndTime.setHours(21, 0, 0, 0);
+          await this.code
+            .connect(this.owner)
+            .setPublicSaleMintTime(
+              Math.floor(publicSaleMintStartTime.getTime() / 1000),
+              Math.floor(publicSaleMintEndTime.getTime() / 1000),
+            );
+
+          let nextBlockTime;
+          nextBlockTime = new Date();
+          nextBlockTime.setFullYear(2023, 3, 18);
+          nextBlockTime.setHours(21, 0, 1, 0);
+          await ethers.provider.send('evm_setNextBlockTimestamp', [
+            Math.ceil(nextBlockTime / 1000),
+          ]);
+          await ethers.provider.send('evm_mine');
+
+          const TICKET = 0;
+          const sig = await this.owner.signMessage(
+            ethers.utils.arrayify(
+              ethers.utils.solidityKeccak256(
+                ['address', 'uint256'],
+                [this.accountAddrs[2], TICKET],
+              ),
+            ),
+          );
+          const quantity = 3;
+          await this.code
+            .connect(this.accounts[2])
+            .publicSaleMint(quantity, TICKET, sig, {
+              value: this.PRICE_PER_TOKEN.mul(quantity),
+            });
+
+          nextBlockTime = new Date();
+          nextBlockTime.setFullYear(2023, 3, 21);
+          nextBlockTime.setHours(21, 0, 1, 0);
+          await ethers.provider.send('evm_setNextBlockTimestamp', [
+            Math.ceil(nextBlockTime / 1000),
+          ]);
+          await ethers.provider.send('evm_mine');
+        });
+
+        afterEach(async function () {
+          await ethers.provider.send('evm_revert', [this.snapshotId]);
+        });
+
+        it('should migrate successfully', async function () {
+          const balance = await this.code.balanceOf(this.accountAddrs[2], 1);
+          const quantity = 2;
+          await this.code.connect(this.accounts[2]).migrate(quantity);
+          expect(await this.code.balanceOf(this.accountAddrs[2], 1)).to.be.eq(
+            balance - quantity,
+          );
+          expect(await this.shell.balanceOf(this.accountAddrs[2])).to.be.eq(
             quantity,
           );
         });

@@ -80,8 +80,8 @@ contract Code is Ownable, ERC1155, ERC1155Burnable, ERC2981 {
     using BitMaps for BitMaps.BitMap;
 
     uint256 public constant MAX_TOTAL_SUPPLY = 9999;
-    uint256 public constant MAX_NUM_MINTS_PER_TX = 5;
-    uint256 public constant PRICE_PER_TOKEN = 0.15 ether;
+    uint256 public constant MAX_NUM_MINTS_PER_TX = 3;
+    uint256 public constant PRICE_PER_TOKEN = 0.12 ether;
     uint256 public constant TOKEN_ID = 1;
 
     uint256 public preSaleMintStartTime = 2**256 - 1;
@@ -342,6 +342,9 @@ contract Code is Ownable, ERC1155, ERC1155Burnable, ERC2981 {
 
         burn(msg.sender, TOKEN_ID, quantity);
 
+        if (address(_shell) == address(0)) {
+            revert();
+        }
         _shell.mint(msg.sender, quantity);
     }
 
