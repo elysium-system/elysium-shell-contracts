@@ -3,6 +3,8 @@ const { ethers } = require('hardhat');
 
 const emAbi = require('./Em.json');
 
+const { EM } = process.env;
+
 describe('Code', function () {
   before(async function () {
     const [owner, ...accounts] = await ethers.getSigners();
@@ -15,8 +17,7 @@ describe('Code', function () {
     this.accounts = accounts;
     this.accountAddrs = accountAddrs;
 
-    const EM_ADDRESS = '0x2ab99216416018c2af55eB9376E9FB188C4F5c9C';
-    const em = await ethers.getContractAt(emAbi, EM_ADDRESS);
+    const em = await ethers.getContractAt(emAbi, EM);
     this.em = em;
   });
 
