@@ -67,7 +67,7 @@ contract Shell is Ownable, ERC721ABurnable, ERC2981 {
         _code = code;
 
         // TODO: Update royalty info
-        // _setDefaultRoyalty(address(0x0), 1000);
+        _setDefaultRoyalty(owner(), 750);
     }
 
     function supportsInterface(bytes4 interfaceId)

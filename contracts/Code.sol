@@ -128,13 +128,18 @@ contract Code is Ownable, ERC1155, ERC1155Burnable, ERC2981 {
         _;
     }
 
-    // TODO: Update uri
-    constructor(address em) ERC1155("") {
+    // TODO: Check URI
+    constructor(address em) ERC1155("ipfs://QmaX42ozSe1PCyi3tprCn64RmyK17j1s2f2szyqPUHT5BP/{id}.json") {
         _em = IERC1155(em);
         _signer = owner();
 
         // TODO: Update royalty info
-        // _setDefaultRoyalty(address(0x0), 1000);
+        _setDefaultRoyalty(owner(), 750);
+
+        // TODO:
+        uint256 reserveQuantity = 999;
+        totalNumMintedTokens = reserveQuantity;
+        _mint(owner(), TOKEN_ID, reserveQuantity, "");
     }
 
     function supportsInterface(bytes4 interfaceId)

@@ -3,5 +3,5 @@
   const randomizer = await Randomizer.deploy();
   await randomizer.deployed();
 
-  console.log(`Deployed at ${randomizer.address}`);
+  console.log(`Randomizer deployed to ${randomizer.address}`);
 })();
