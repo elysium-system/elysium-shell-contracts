@@ -40,6 +40,7 @@ import "@openzeppelin/contracts/utils/structs/BitMaps.sol";
 
 error NotEnoughLINK();
 error AlreadyRevealed();
+error RequestRevealTooManyAtOnce();
 
 contract Randomizer is Ownable, VRFConsumerBase {
     using BitMaps for BitMaps.BitMap;
@@ -49,36 +50,20 @@ contract Randomizer is Ownable, VRFConsumerBase {
         0x6e75b569a01ef56d18cab6a8e71e6600d6ce853834d4a5748b720d06f878b3a4;
     uint256 private constant _FEE = 0.0001 * 10**18;
 
-    mapping(bytes32 => uint256) public requestIdToShellTokenId;
+    mapping(bytes32 => uint256) public requestIdToShellStartTokenId;
+    mapping(uint256 => uint256) public shellStartTokenIdToQuantity;
     mapping(uint256 => uint256) public shellMagicalArray;
     uint256 public numUnrevealedShells = 9999;
-    BitMaps.BitMap private _isShellRevealed;
+    mapping(uint256 => uint256) public shellTokenIdToMetadataId;
 
-    mapping(bytes32 => uint256) public requestIdToRecodedShellTokenId;
-    mapping(uint256 => uint256) public recodedShellMagicalArray;
-    uint256 public numUnrevealedRecodedShells = 4999;
-    BitMaps.BitMap private _isRecodedShellRevealed;
-
-    event RequestRevealForShell(
+    event RequestRevealShell(
         bytes32 indexed requestId,
-        uint256 indexed tokenId,
+        uint256 indexed startTokenId,
+        uint256 quantity,
         address indexed from,
         uint256 timestamp
     );
-    event RevealForShell(
-        bytes32 indexed requestId,
-        uint256 indexed tokenId,
-        uint256 indexed metadataId,
-        uint256 randomness
-    );
-
-    event RequestRevealForRecodedShell(
-        bytes32 indexed requestId,
-        uint256 indexed tokenId,
-        address indexed from,
-        uint256 timestamp
-    );
-    event RevealForRecodedShell(
+    event RevealShell(
         bytes32 indexed requestId,
         uint256 indexed tokenId,
         uint256 indexed metadataId,
@@ -93,38 +78,34 @@ contract Randomizer is Ownable, VRFConsumerBase {
         )
     {}
 
-    function requestRevealForShell(
-        uint256 tokenId,
+    function requestRevealShell(
+        uint256 startTokenId,
+        uint256 quantity,
         address from,
         uint256 timestamp
     ) external onlyOwner {
+        if (quantity > 256) {
+            revert RequestRevealTooManyAtOnce();
+        }
+
         bytes32 requestId = _requestRandomNumber();
 
-        if (_isShellRevealed.get(tokenId)) {
-            revert AlreadyRevealed();
+        requestIdToShellStartTokenId[requestId] = startTokenId;
+        shellStartTokenIdToQuantity[startTokenId] = quantity;
+
+        for (uint256 i = 0; i < quantity; ++i) {
+            if (shellTokenIdToMetadataId[startTokenId + i] != 0) {
+                revert AlreadyRevealed();
+            }
         }
-        _isShellRevealed.set(tokenId);
 
-        requestIdToShellTokenId[requestId] = tokenId;
-
-        emit RequestRevealForShell(requestId, tokenId, from, timestamp);
-    }
-
-    function requestRevealForRecodedShell(
-        uint256 tokenId,
-        address from,
-        uint256 timestamp
-    ) external onlyOwner {
-        bytes32 requestId = _requestRandomNumber();
-
-        if (_isRecodedShellRevealed.get(tokenId)) {
-            revert AlreadyRevealed();
-        }
-        _isRecodedShellRevealed.set(tokenId);
-
-        requestIdToRecodedShellTokenId[requestId] = tokenId;
-
-        emit RequestRevealForRecodedShell(requestId, tokenId, from, timestamp);
+        emit RequestRevealShell(
+            requestId,
+            startTokenId,
+            quantity,
+            from,
+            timestamp
+        );
     }
 
     function _requestRandomNumber() internal returns (bytes32 requestId) {
@@ -138,56 +119,34 @@ contract Randomizer is Ownable, VRFConsumerBase {
         internal
         override
     {
-        uint256 shellTokenId = requestIdToShellTokenId[requestId];
-        if (shellTokenId != 0) {
-            uint256 idx = randomness % numUnrevealedShells;
+        uint256 shellStartTokenId = requestIdToShellStartTokenId[requestId];
+        if (shellStartTokenId != 0) {
+            uint256 quantity = shellStartTokenIdToQuantity[shellStartTokenId];
+            for (uint256 i = 0; i < quantity; ++i) {
+                uint256 idx = randomness % numUnrevealedShells;
 
-            uint256 metadataId = shellMagicalArray[idx];
-            if (metadataId == 0) {
-                metadataId = idx;
+                uint256 metadataId = shellMagicalArray[idx];
+                if (metadataId == 0) {
+                    metadataId = idx;
+                }
+                ++metadataId;
+
+                uint256 backIdx = numUnrevealedShells - 1;
+                uint256 backMetadataId = shellMagicalArray[backIdx];
+                if (backMetadataId == 0) {
+                    backMetadataId = backIdx;
+                }
+                shellMagicalArray[idx] = backMetadataId;
+
+                --numUnrevealedShells;
+
+                uint256 tokenId = shellStartTokenId + i;
+                shellTokenIdToMetadataId[tokenId] = metadataId;
+
+                emit RevealShell(requestId, tokenId, metadataId, randomness);
+
+                randomness >>= 1;
             }
-
-            uint256 backIdx = numUnrevealedShells - 1;
-            uint256 lastMetadataId = shellMagicalArray[backIdx];
-            if (lastMetadataId == 0) {
-                lastMetadataId = backIdx;
-            }
-            shellMagicalArray[idx] = lastMetadataId;
-
-            numUnrevealedShells = backIdx;
-
-            emit RevealForShell(
-                requestId,
-                shellTokenId,
-                metadataId + 1,
-                randomness
-            );
-        }
-
-        uint256 recodedShellTokenId = requestIdToRecodedShellTokenId[requestId];
-        if (recodedShellTokenId != 0) {
-            uint256 idx = randomness % numUnrevealedRecodedShells;
-
-            uint256 metadataId = recodedShellMagicalArray[idx];
-            if (metadataId == 0) {
-                metadataId = idx;
-            }
-
-            uint256 backIdx = numUnrevealedRecodedShells - 1;
-            uint256 lastMetadataId = recodedShellMagicalArray[backIdx];
-            if (lastMetadataId == 0) {
-                lastMetadataId = backIdx;
-            }
-            recodedShellMagicalArray[idx] = lastMetadataId;
-
-            numUnrevealedRecodedShells = backIdx;
-
-            emit RevealForRecodedShell(
-                requestId,
-                recodedShellTokenId,
-                metadataId + 1,
-                randomness
-            );
         }
     }
 

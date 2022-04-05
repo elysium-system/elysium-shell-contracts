@@ -39,25 +39,22 @@ import "erc721a/contracts/extensions/ERC721ABurnable.sol";
 import "@openzeppelin/contracts/token/common/ERC2981.sol";
 import "@openzeppelin/contracts/utils/structs/BitMaps.sol";
 
-interface IRandomizer {
-    function recodedShellTokenIdToMetadataId(uint256 tokenId)
-        external
-        view
-        returns (uint256);
-}
-
 error NotCode();
 error InvalidToken();
+error AlreadyRevealed();
 
 contract RecodedShell is Ownable, ERC721ABurnable, ERC2981 {
     using BitMaps for BitMaps.BitMap;
 
-    string private _baseTokenURI = ""; // TODO:
+    // TODO:
+    string private _baseTokenURI = "";
+    mapping(uint256 => uint256) private _tokenIdToMetadataId;
 
     BitMaps.BitMap private _isTokenValid;
 
-    IRandomizer private immutable _randomizer;
     address private immutable _code;
+
+    // TODO: Merkle tree root hash for provenance
 
     modifier onlyCode() {
         if (msg.sender != _code) {
@@ -66,14 +63,11 @@ contract RecodedShell is Ownable, ERC721ABurnable, ERC2981 {
         _;
     }
 
-    constructor(address randomizer, address code)
-        ERC721A("Elysium Recoded Shell", "ERS")
-    {
-        _randomizer = IRandomizer(randomizer);
+    constructor(address code) ERC721A("Elysium Recoded Shell", "ERS") {
         _code = code;
 
         // TODO: Update royalty info
-        _setDefaultRoyalty(address(0x0), 1000);
+        // _setDefaultRoyalty(address(0x0), 1000);
     }
 
     function supportsInterface(bytes4 interfaceId)
@@ -99,12 +93,8 @@ contract RecodedShell is Ownable, ERC721ABurnable, ERC2981 {
             revert URIQueryForNonexistentToken();
         }
 
-        uint256 metadataId = _metadataId(tokenId);
-        if (metadataId == tokenId) {
-            return ""; // TODO:
-        }
-
-        if (!_isTokenValid.get(tokenId)) {
+        uint256 metadataId = _tokenIdToMetadataId[tokenId];
+        if (metadataId == 0 || !_isTokenValid.get(tokenId)) {
             return ""; // TODO:
         }
 
@@ -117,16 +107,19 @@ contract RecodedShell is Ownable, ERC721ABurnable, ERC2981 {
                 : "";
     }
 
-    function _metadataId(uint256 tokenId) internal view returns (uint256) {
-        return _randomizer.recodedShellTokenIdToMetadataId(tokenId);
-    }
-
     function _baseURI() internal view override returns (string memory) {
         return _baseTokenURI;
     }
 
     function setBaseTokenURI(string calldata baseTokenURI) external onlyOwner {
         _baseTokenURI = baseTokenURI;
+    }
+
+    function reveal(uint256 tokenId, uint256 metadataId) external onlyOwner {
+        if (_tokenIdToMetadataId[tokenId] != 0) {
+            revert AlreadyRevealed();
+        }
+        _tokenIdToMetadataId[tokenId] = metadataId;
     }
 
     function setDefaultRoyalty(address receiver, uint96 feeNumerator)
@@ -170,6 +163,10 @@ contract RecodedShell is Ownable, ERC721ABurnable, ERC2981 {
         uint256 startTokenId,
         uint256 quantity
     ) internal override {
+        if (from == address(0) || to == address(0)) {
+            return;
+        }
+
         for (
             uint256 tokenId = startTokenId;
             tokenId < startTokenId + quantity;

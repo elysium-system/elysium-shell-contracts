@@ -53,6 +53,8 @@ error MintTooManyAtOnce();
 error ZeroQuantity();
 error SoldOut();
 error InvalidSignature();
+error ShellNotSet();
+error MigrateTooManyAtOnce();
 
 interface IShell {
     function nextTokenId() external view returns (uint256);
@@ -102,13 +104,19 @@ contract Code is Ownable, ERC1155, ERC1155Burnable, ERC2981 {
     uint256 public totalNumMintedTokens;
 
     IERC1155 private immutable _em;
-    address private _signer;
+    address private immutable _signer;
     IShell private _shell;
     IRecodedShell private _recodedShell;
 
+    event Migrate(
+        address indexed from,
+        uint256 indexed startTokenId,
+        uint256 quantity
+    );
+
     event InitiateRecode(
         address indexed from,
-        uint256 shellTokenId,
+        uint256 indexed shellTokenId,
         uint256 newShellTokenId,
         uint256 newRecodedShellTokenId
     );
@@ -123,6 +131,7 @@ contract Code is Ownable, ERC1155, ERC1155Burnable, ERC2981 {
     // TODO: Update uri
     constructor(address em) ERC1155("") {
         _em = IERC1155(em);
+        _signer = owner();
 
         // TODO: Update royalty info
         // _setDefaultRoyalty(address(0x0), 1000);
@@ -142,10 +151,6 @@ contract Code is Ownable, ERC1155, ERC1155Burnable, ERC2981 {
         onlyOwner
     {
         _setDefaultRoyalty(receiver, feeNumerator);
-    }
-
-    function setSigner(address addr) external onlyOwner {
-        _signer = addr;
     }
 
     function setPreSaleMintTime(uint256 start, uint256 end) external onlyOwner {
@@ -340,12 +345,21 @@ contract Code is Ownable, ERC1155, ERC1155Burnable, ERC2981 {
             revert Ended();
         }
 
+        if (quantity > 256) {
+          revert MigrateTooManyAtOnce();
+        }
+
         burn(msg.sender, TOKEN_ID, quantity);
 
+        // TODO:
         if (address(_shell) == address(0)) {
-            revert();
+            revert ShellNotSet();
         }
+
+        uint256 startTokenId = _shell.nextTokenId();
         _shell.mint(msg.sender, quantity);
+
+        emit Migrate(msg.sender, startTokenId, quantity);
     }
 
     function initiateRecode(uint256 shellTokenId) external onlyEOA {
@@ -362,7 +376,6 @@ contract Code is Ownable, ERC1155, ERC1155Burnable, ERC2981 {
 
         uint256 newShellTokenId = _shell.nextTokenId();
         _shell.mint(msg.sender, 1);
-        _shell.setTokenInvalid(newShellTokenId);
 
         uint256 newRecodedShellTokenId = _recodedShell.nextTokenId();
         _recodedShell.mint(msg.sender, 1);
@@ -385,9 +398,6 @@ contract Code is Ownable, ERC1155, ERC1155Burnable, ERC2981 {
         uint256 blockTime = block.timestamp;
         if (blockTime < recodingStartTime) {
             revert NotStarted();
-        }
-        if (blockTime >= recodingEndTime) {
-            revert Ended();
         }
 
         bytes32 hash = ECDSA.toEthSignedMessageHash(

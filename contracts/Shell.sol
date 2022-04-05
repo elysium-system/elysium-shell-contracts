@@ -39,27 +39,22 @@ import "erc721a/contracts/extensions/ERC721ABurnable.sol";
 import "@openzeppelin/contracts/token/common/ERC2981.sol";
 import "@openzeppelin/contracts/utils/structs/BitMaps.sol";
 
-interface IRandomizer {
-    function shellTokenIdToMetadataId(uint256 tokenId)
-        external
-        view
-        returns (uint256);
-}
-
 error NotCode();
 error InvalidToken();
+error AlreadyRevealed();
 
 contract Shell is Ownable, ERC721ABurnable, ERC2981 {
     using BitMaps for BitMaps.BitMap;
 
-    string private _baseTokenURI = ""; // TODO:
+    // TODO:
+    string private _baseTokenURI = "";
+    mapping(uint256 => uint256) private _tokenIdToMetadataId;
 
-    BitMaps.BitMap private _isTokenInvalid;
+    BitMaps.BitMap private _isTokenValid;
 
     address private immutable _code;
-    IRandomizer private _randomizer;
 
-    bytes32 public provenanceHash;
+    // TODO: Merkle tree root hash for provenance
 
     modifier onlyCode() {
         if (msg.sender != _code) {
@@ -68,9 +63,7 @@ contract Shell is Ownable, ERC721ABurnable, ERC2981 {
         _;
     }
 
-    constructor(address code)
-        ERC721A("Elysium Shell", "ES")
-    {
+    constructor(address code) ERC721A("Elysium Shell", "ES") {
         _code = code;
 
         // TODO: Update royalty info
@@ -100,12 +93,8 @@ contract Shell is Ownable, ERC721ABurnable, ERC2981 {
             revert URIQueryForNonexistentToken();
         }
 
-        uint256 metadataId = _metadataId(tokenId);
-        if (metadataId == tokenId) {
-            return ""; // TODO:
-        }
-
-        if (_isTokenInvalid.get(tokenId)) {
+        uint256 metadataId = _tokenIdToMetadataId[tokenId];
+        if (metadataId == 0 || !_isTokenValid.get(tokenId)) {
             return ""; // TODO:
         }
 
@@ -118,16 +107,19 @@ contract Shell is Ownable, ERC721ABurnable, ERC2981 {
                 : "";
     }
 
-    function _metadataId(uint256 tokenId) internal view returns (uint256) {
-        return _randomizer.shellTokenIdToMetadataId(tokenId);
-    }
-
     function _baseURI() internal view override returns (string memory) {
         return _baseTokenURI;
     }
 
     function setBaseTokenURI(string calldata baseTokenURI) external onlyOwner {
         _baseTokenURI = baseTokenURI;
+    }
+
+    function reveal(uint256 tokenId, uint256 metadataId) external onlyOwner {
+        if (_tokenIdToMetadataId[tokenId] != 0) {
+            revert AlreadyRevealed();
+        }
+        _tokenIdToMetadataId[tokenId] = metadataId;
     }
 
     function setDefaultRoyalty(address receiver, uint96 feeNumerator)
@@ -143,10 +135,6 @@ contract Shell is Ownable, ERC721ABurnable, ERC2981 {
         uint96 feeNumerator
     ) external onlyOwner {
         _setTokenRoyalty(tokenId, receiver, feeNumerator);
-    }
-
-    function setProvenanceHash(bytes32 hash) external onlyOwner {
-        provenanceHash = hash;
     }
 
     function nextTokenId() external view returns (uint256) {
@@ -165,12 +153,8 @@ contract Shell is Ownable, ERC721ABurnable, ERC2981 {
         _mint(to, quantity, "", false);
     }
 
-    function setTokenInvalid(uint256 tokenId) external onlyCode {
-        _isTokenInvalid.set(tokenId);
-    }
-
     function setTokenValid(uint256 tokenId) external onlyCode {
-        _isTokenInvalid.unset(tokenId);
+        _isTokenValid.set(tokenId);
     }
 
     function _beforeTokenTransfers(
@@ -179,12 +163,16 @@ contract Shell is Ownable, ERC721ABurnable, ERC2981 {
         uint256 startTokenId,
         uint256 quantity
     ) internal override {
+        if (from == address(0) || to == address(0)) {
+            return;
+        }
+
         for (
             uint256 tokenId = startTokenId;
             tokenId < startTokenId + quantity;
             ++tokenId
         ) {
-            if (_isTokenInvalid.get(tokenId)) {
+            if (!_isTokenValid.get(tokenId)) {
                 revert InvalidToken();
             }
         }
