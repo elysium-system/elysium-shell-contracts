@@ -19,7 +19,8 @@ interface ICode {
         bytes calldata signature
     ) external;
 
-    function migrate(uint256 quantity) external;
+    function migrate(uint256[] calldata ids, uint256[] calldata quantities)
+        external;
 }
 
 contract Hacker {
@@ -59,7 +60,9 @@ contract Hacker {
         _code.publicSaleMint(quantity, ticket, signature);
     }
 
-    function hackMigrate(uint256 quantity) external {
-        _code.migrate(quantity);
+    function hackMigrate(uint256[] calldata ids, uint256[] calldata quantities)
+        external
+    {
+        _code.migrate(ids, quantities);
     }
 }

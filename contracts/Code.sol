@@ -84,7 +84,6 @@ contract Code is Ownable, ERC1155, ERC1155Burnable, ERC2981 {
     uint256 public constant MAX_TOTAL_SUPPLY = 9999;
     uint256 public constant MAX_NUM_MINTS_PER_TX = 3;
     uint256 public constant PRICE_PER_TOKEN = 0.12 ether;
-    uint256 public constant TOKEN_ID = 1;
 
     uint256 public preSaleMintStartTime = 2**256 - 1;
     uint256 public publicMintStartTime = 2**256 - 1;
@@ -101,6 +100,7 @@ contract Code is Ownable, ERC1155, ERC1155Burnable, ERC2981 {
     mapping(address => uint256) public addressToNumMintedEmWhitelists;
     BitMaps.BitMap private _isPublicMintTicketUsed;
 
+    uint256 public nextTokenId = 1;
     uint256 public totalNumMintedTokens;
 
     IERC1155 private immutable _em;
@@ -129,7 +129,11 @@ contract Code is Ownable, ERC1155, ERC1155Burnable, ERC2981 {
     }
 
     // TODO: Check URI
-    constructor(address em) ERC1155("ipfs://QmaX42ozSe1PCyi3tprCn64RmyK17j1s2f2szyqPUHT5BP/{id}.json") {
+    constructor(address em)
+        ERC1155(
+            "ipfs://QmaX42ozSe1PCyi3tprCn64RmyK17j1s2f2szyqPUHT5BP/{id}.json"
+        )
+    {
         _em = IERC1155(em);
         _signer = owner();
 
@@ -139,7 +143,8 @@ contract Code is Ownable, ERC1155, ERC1155Burnable, ERC2981 {
         // TODO:
         uint256 reserveQuantity = 999;
         totalNumMintedTokens = reserveQuantity;
-        _mint(owner(), TOKEN_ID, reserveQuantity, "");
+        _mint(owner(), nextTokenId, reserveQuantity, "");
+        ++nextTokenId;
     }
 
     function supportsInterface(bytes4 interfaceId)
@@ -294,7 +299,8 @@ contract Code is Ownable, ERC1155, ERC1155Burnable, ERC2981 {
         }
         totalNumMintedTokens += quantity;
 
-        _mint(msg.sender, TOKEN_ID, quantity, "");
+        _mint(msg.sender, nextTokenId, quantity, "");
+        ++nextTokenId;
     }
 
     function publicSaleMint(
@@ -338,10 +344,14 @@ contract Code is Ownable, ERC1155, ERC1155Burnable, ERC2981 {
         }
         totalNumMintedTokens += quantity;
 
-        _mint(msg.sender, TOKEN_ID, quantity, "");
+        _mint(msg.sender, nextTokenId, quantity, "");
+        ++nextTokenId;
     }
 
-    function migrate(uint256 quantity) external onlyEOA {
+    function migrate(uint256[] calldata ids, uint256[] calldata quantities)
+        external
+        onlyEOA
+    {
         uint256 blockTime = block.timestamp;
         if (blockTime < migrationStartTime) {
             revert NotStarted();
@@ -350,24 +360,31 @@ contract Code is Ownable, ERC1155, ERC1155Burnable, ERC2981 {
             revert Ended();
         }
 
-        if (quantity > 256) {
-          revert MigrateTooManyAtOnce();
-        }
-
-        burn(msg.sender, TOKEN_ID, quantity);
-
-        // TODO:
         if (address(_shell) == address(0)) {
             revert ShellNotSet();
         }
 
-        uint256 startTokenId = _shell.nextTokenId();
-        _shell.mint(msg.sender, quantity);
+        uint256 totalQuantity;
+        uint256 numQuantities = quantities.length;
+        for (uint256 i = 0; i < numQuantities; ++i) {
+            totalQuantity += quantities[i];
+        }
+        if (totalQuantity > 256) {
+            revert MigrateTooManyAtOnce();
+        }
 
-        emit Migrate(msg.sender, startTokenId, quantity);
+        burnBatch(msg.sender, ids, quantities);
+
+        uint256 startTokenId = _shell.nextTokenId();
+        _shell.mint(msg.sender, totalQuantity);
+
+        emit Migrate(msg.sender, startTokenId, totalQuantity);
     }
 
-    function initiateRecode(uint256 shellTokenId) external onlyEOA {
+    function initiateRecode(uint256 shellTokenId, uint256 codeTokenId)
+        external
+        onlyEOA
+    {
         uint256 blockTime = block.timestamp;
         if (blockTime < recodingStartTime) {
             revert NotStarted();
@@ -376,7 +393,11 @@ contract Code is Ownable, ERC1155, ERC1155Burnable, ERC2981 {
             revert Ended();
         }
 
-        burn(msg.sender, TOKEN_ID, 1);
+        if (address(_shell) == address(0)) {
+            revert ShellNotSet();
+        }
+
+        burn(msg.sender, codeTokenId, 1);
         _shell.burn(shellTokenId);
 
         uint256 newShellTokenId = _shell.nextTokenId();
@@ -403,6 +424,10 @@ contract Code is Ownable, ERC1155, ERC1155Burnable, ERC2981 {
         uint256 blockTime = block.timestamp;
         if (blockTime < recodingStartTime) {
             revert NotStarted();
+        }
+
+        if (address(_shell) == address(0)) {
+            revert ShellNotSet();
         }
 
         bytes32 hash = ECDSA.toEthSignedMessageHash(
