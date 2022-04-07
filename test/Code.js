@@ -16,6 +16,19 @@ PRE_SALE_MINT_END_TIME.setFullYear(2023, 3, 17);
 PRE_SALE_MINT_END_TIME.setHours(21, 0, 0, 0);
 PRE_SALE_MINT_END_TIME = Math.floor(PRE_SALE_MINT_END_TIME.getTime() / 1000);
 
+let PUBLIC_SALE_MINT_START_TIME = new Date();
+PUBLIC_SALE_MINT_START_TIME.setFullYear(2023, 3, 18);
+PUBLIC_SALE_MINT_START_TIME.setHours(21, 0, 0, 0);
+PUBLIC_SALE_MINT_START_TIME = Math.floor(
+  PUBLIC_SALE_MINT_START_TIME.getTime() / 1000,
+);
+let PUBLIC_SALE_MINT_END_TIME = new Date();
+PUBLIC_SALE_MINT_END_TIME.setFullYear(2023, 3, 20);
+PUBLIC_SALE_MINT_END_TIME.setHours(21, 0, 0, 0);
+PUBLIC_SALE_MINT_END_TIME = Math.floor(
+  PUBLIC_SALE_MINT_END_TIME.getTime() / 1000,
+);
+
 describe('Code', function () {
   let owner, accounts;
   let ownerAddr, accountAddrs;
@@ -60,10 +73,18 @@ describe('Code', function () {
     });
 
     context('when pre sale mint time is set', function () {
+      let snapshotId;
+
       beforeEach(async function () {
+        snapshotId = await ethers.provider.send('evm_snapshot');
+
         await code
           .connect(owner)
           .setPreSaleMintTime(PRE_SALE_MINT_START_TIME, PRE_SALE_MINT_END_TIME);
+      });
+
+      afterEach(async function () {
+        await ethers.provider.send('evm_revert', [snapshotId]);
       });
 
       context('when pre sale mint has not started', function () {
@@ -251,11 +272,13 @@ describe('Code', function () {
           it('should mint successfully', async function () {
             const tokenId = await code.nextTokenId();
             await mint();
-            for (let i = 0; i < FREE_MINT_QUANTITIES.length; ++i) {
-              expect(
-                await code.balanceOf(minterAddrs[i], tokenId.add(i)),
-              ).to.be.eq(FREE_MINT_QUANTITIES[i]);
-            }
+            await Promise.all(
+              FREE_MINT_QUANTITIES.map(async (_, idx) =>
+                expect(
+                  await code.balanceOf(minterAddrs[idx], tokenId.add(idx)),
+                ).to.be.eq(FREE_MINT_QUANTITIES[idx]),
+              ),
+            );
           });
         });
 
@@ -447,11 +470,13 @@ describe('Code', function () {
           it('should mint successfully', async function () {
             const tokenId = await code.nextTokenId();
             await mint();
-            for (let i = 0; i < WHITELIST_MINT_ALLOWED_QUANTITIES.length; ++i) {
-              expect(
-                await code.balanceOf(minterAddrs[i], tokenId.add(i)),
-              ).to.be.eq(WHITELIST_MINT_ALLOWED_QUANTITIES[i]);
-            }
+            await Promise.all(
+              WHITELIST_MINT_ALLOWED_QUANTITIES.map(async (_, idx) =>
+                expect(
+                  await code.balanceOf(minterAddrs[idx], tokenId.add(idx)),
+                ).to.be.eq(WHITELIST_MINT_ALLOWED_QUANTITIES[idx]),
+              ),
+            );
           });
         });
 
@@ -698,15 +723,13 @@ describe('Code', function () {
           it('should mint successfully', async function () {
             const tokenId = await code.nextTokenId();
             await mint();
-            for (
-              let i = 0;
-              i < EM_WHITELIST_MINT_ALLOWED_QUANTITIES.length;
-              ++i
-            ) {
-              expect(
-                await code.balanceOf(minterAddrs[i], tokenId.add(i)),
-              ).to.be.eq(EM_WHITELIST_MINT_ALLOWED_QUANTITIES[i]);
-            }
+            await Promise.all(
+              EM_WHITELIST_MINT_ALLOWED_QUANTITIES.map(async (_, idx) =>
+                expect(
+                  await code.balanceOf(minterAddrs[idx], tokenId.add(idx)),
+                ).to.be.eq(EM_WHITELIST_MINT_ALLOWED_QUANTITIES[idx]),
+              ),
+            );
           });
         });
       });
@@ -729,19 +752,21 @@ describe('Code', function () {
     });
 
     context('when public sale mint time is set', function () {
+      let snapshotId;
+
       beforeEach(async function () {
-        const publicSaleMintStartTime = new Date();
-        publicSaleMintStartTime.setFullYear(2023, 3, 18);
-        publicSaleMintStartTime.setHours(21, 0, 0, 0);
-        const publicSaleMintEndTime = new Date();
-        publicSaleMintEndTime.setFullYear(2023, 3, 20);
-        publicSaleMintEndTime.setHours(21, 0, 0, 0);
+        snapshotId = await ethers.provider.send('evm_snapshot');
+
         await code
-          .connect(this.owner)
+          .connect(owner)
           .setPublicSaleMintTime(
-            Math.floor(publicSaleMintStartTime.getTime() / 1000),
-            Math.floor(publicSaleMintEndTime.getTime() / 1000),
+            PUBLIC_SALE_MINT_START_TIME,
+            PUBLIC_SALE_MINT_END_TIME,
           );
+      });
+
+      afterEach(async function () {
+        await ethers.provider.send('evm_revert', [snapshotId]);
       });
 
       context('when public sale mint has not started', function () {
@@ -753,21 +778,20 @@ describe('Code', function () {
       });
 
       context('when public sale mint has ended', function () {
-        beforeEach(async function () {
-          const snapshotId = await ethers.provider.send('evm_snapshot');
-          this.snapshotId = snapshotId;
+        let snapshotId;
 
-          const nextBlockTime = new Date();
-          nextBlockTime.setFullYear(2023, 3, 20);
-          nextBlockTime.setHours(21, 0, 1, 0);
+        beforeEach(async function () {
+          snapshotId = await ethers.provider.send('evm_snapshot');
+
+          const nextBlockTime = PUBLIC_SALE_MINT_END_TIME + 1;
           await ethers.provider.send('evm_setNextBlockTimestamp', [
-            Math.ceil(nextBlockTime / 1000),
+            nextBlockTime,
           ]);
           await ethers.provider.send('evm_mine');
         });
 
         afterEach(async function () {
-          await ethers.provider.send('evm_revert', [this.snapshotId]);
+          await ethers.provider.send('evm_revert', [snapshotId]);
         });
 
         it('should revert', async function () {
@@ -778,118 +802,168 @@ describe('Code', function () {
       });
 
       context('when public sale mint has started and not ended', function () {
-        beforeEach(async function () {
-          const snapshotId = await ethers.provider.send('evm_snapshot');
-          this.snapshotId = snapshotId;
+        let snapshotId;
 
-          const nextBlockTime = new Date();
-          nextBlockTime.setFullYear(2023, 3, 18);
-          nextBlockTime.setHours(21, 0, 1, 0);
+        const PUBLIC_MINT_QUANTITIES = [1, 3, 2];
+        const PUBLIC_MINT_TICKETS = new Array(3)
+          .fill(null)
+          .map((_, idx) => idx);
+
+        let minters;
+        let minterAddrs;
+
+        let validSignatures, invalidSignatures;
+
+        const mint = async () => {
+          await PUBLIC_MINT_QUANTITIES.reduce(async (prev, _, idx) => {
+            await prev;
+            await code
+              .connect(minters[idx])
+              .publicSaleMint(
+                PUBLIC_MINT_QUANTITIES[idx],
+                PUBLIC_MINT_TICKETS[idx],
+                validSignatures[idx],
+                {
+                  value: PRICE_PER_TOKEN.mul(PUBLIC_MINT_QUANTITIES[idx]),
+                },
+              );
+          }, Promise.resolve());
+        };
+
+        beforeEach(async function () {
+          snapshotId = await ethers.provider.send('evm_snapshot');
+
+          const nextBlockTime = PUBLIC_SALE_MINT_START_TIME + 1;
           await ethers.provider.send('evm_setNextBlockTimestamp', [
-            Math.ceil(nextBlockTime / 1000),
+            nextBlockTime,
           ]);
           await ethers.provider.send('evm_mine');
         });
 
         afterEach(async function () {
-          await ethers.provider.send('evm_revert', [this.snapshotId]);
+          await ethers.provider.send('evm_revert', [snapshotId]);
         });
 
         beforeEach(async function () {
-          const minter = accounts[1];
-          const minterAddr = await minter.getAddress();
-          this.minter = minter;
-          this.minterAddr = minterAddr;
+          minters = accounts.slice(1);
+          minterAddrs = await Promise.all(
+            minters.map((minter) => minter.getAddress()),
+          );
 
-          const QUANTITY = 1;
-          const TICKET = 0;
-          this.QUANTITY = QUANTITY;
-          this.TICKET = TICKET;
-
-          const validSignature = await this.owner.signMessage(
-            ethers.utils.arrayify(
-              ethers.utils.solidityKeccak256(
-                ['address', 'uint256'],
-                [minterAddr, TICKET],
+          validSignatures = await Promise.all(
+            PUBLIC_MINT_QUANTITIES.map((_, idx) =>
+              owner.signMessage(
+                ethers.utils.arrayify(
+                  ethers.utils.solidityKeccak256(
+                    ['address', 'uint256'],
+                    [minterAddrs[idx], PUBLIC_MINT_TICKETS[idx]],
+                  ),
+                ),
               ),
             ),
           );
-          this.validSignature = validSignature;
 
-          const invalidSignature = await this.owner.signMessage(
-            ethers.utils.arrayify(
-              ethers.utils.solidityKeccak256(
-                ['address', 'uint256'],
-                [minterAddr, TICKET + 1],
+          invalidSignatures = await Promise.all(
+            PUBLIC_MINT_QUANTITIES.map((_, idx) =>
+              owner.signMessage(
+                ethers.utils.arrayify(
+                  ethers.utils.solidityKeccak256(
+                    ['address', 'uint256'],
+                    [minterAddrs[idx], PUBLIC_MINT_TICKETS[idx] + 1],
+                  ),
+                ),
               ),
             ),
           );
-          this.invalidSignature = invalidSignature;
         });
 
         it('should revert if signature is invalid', async function () {
-          const quantity = this.QUANTITY;
-          await expect(
-            code
-              .connect(this.minter)
-              .publicSaleMint(quantity, this.TICKET, this.invalidSignature),
-          ).to.be.revertedWith('InvalidSignature');
+          await Promise.all(
+            PUBLIC_MINT_QUANTITIES.map((_, idx) =>
+              expect(
+                code
+                  .connect(minters[idx])
+                  .publicSaleMint(
+                    PUBLIC_MINT_QUANTITIES[idx],
+                    PUBLIC_MINT_TICKETS[idx],
+                    invalidSignatures[idx],
+                  ),
+              ).to.be.revertedWith('InvalidSignature'),
+            ),
+          );
         });
 
         it('should revert if ticket has been used', async function () {
-          const quantity = this.QUANTITY;
-          await code
-            .connect(this.minter)
-            .publicSaleMint(quantity, this.TICKET, this.validSignature, {
-              value: this.PRICE_PER_TOKEN.mul(quantity),
-            });
-          await expect(
-            code
-              .connect(this.minter)
-              .publicSaleMint(quantity, this.TICKET, this.validSignature, {
-                value: this.PRICE_PER_TOKEN.mul(quantity),
-              }),
-          ).to.be.revertedWith('TicketUsed');
+          await mint();
+          await Promise.all(
+            PUBLIC_MINT_QUANTITIES.map((_, idx) =>
+              expect(
+                code
+                  .connect(minters[idx])
+                  .publicSaleMint(
+                    PUBLIC_MINT_QUANTITIES[idx],
+                    PUBLIC_MINT_TICKETS[idx],
+                    validSignatures[idx],
+                    {
+                      value: PRICE_PER_TOKEN.mul(PUBLIC_MINT_QUANTITIES[idx]),
+                    },
+                  ),
+              ).to.be.revertedWith('TicketUsed'),
+            ),
+          );
         });
 
         it('should revert if not enough ETH', async function () {
-          const quantity = this.QUANTITY;
-          await expect(
-            code
-              .connect(this.minter)
-              .publicSaleMint(quantity, this.TICKET, this.validSignature),
-          ).to.be.revertedWith('NotEnoughETH');
+          await Promise.all(
+            PUBLIC_MINT_QUANTITIES.map((_, idx) =>
+              expect(
+                code
+                  .connect(minters[idx])
+                  .publicSaleMint(
+                    PUBLIC_MINT_QUANTITIES[idx],
+                    PUBLIC_MINT_TICKETS[idx],
+                    validSignatures[idx],
+                  ),
+              ).to.be.revertedWith('NotEnoughETH'),
+            ),
+          );
         });
 
         it('should revert if mint too many at once', async function () {
-          const MAX_NUM_MINTS_PER_TX = await code.MAX_NUM_MINTS_PER_TX();
-          const quantity = MAX_NUM_MINTS_PER_TX + 1;
-          await expect(
-            code
-              .connect(this.minter)
-              .publicSaleMint(quantity, this.TICKET, this.validSignature, {
-                value: this.PRICE_PER_TOKEN.mul(quantity),
-              }),
-          ).to.be.revertedWith('MintTooManyAtOnce');
+          await Promise.all(
+            PUBLIC_MINT_QUANTITIES.map((_, idx) =>
+              expect(
+                code
+                  .connect(minters[idx])
+                  .publicSaleMint(
+                    MAX_NUM_MINTS_PER_TX + 1,
+                    PUBLIC_MINT_TICKETS[idx],
+                    validSignatures[idx],
+                    {
+                      value: PRICE_PER_TOKEN.mul(MAX_NUM_MINTS_PER_TX + 1),
+                    },
+                  ),
+              ).to.be.revertedWith('MintTooManyAtOnce'),
+            ),
+          );
         });
 
         it('should mint successfully', async function () {
-          const quantity = this.QUANTITY;
           const tokenId = await code.nextTokenId();
-          await code
-            .connect(this.minter)
-            .publicSaleMint(quantity, this.TICKET, this.validSignature, {
-              value: this.PRICE_PER_TOKEN.mul(quantity),
-            });
-          expect(await code.balanceOf(this.minterAddr, tokenId)).to.be.eq(
-            quantity,
+          await mint();
+          await Promise.all(
+            PUBLIC_MINT_QUANTITIES.map(async (_, idx) =>
+              expect(
+                await code.balanceOf(minterAddrs[idx], tokenId.add(idx)),
+              ).to.be.eq(PUBLIC_MINT_QUANTITIES[idx]),
+            ),
           );
         });
       });
     });
   });
 
-  describe('#migrate', function () {
+  describe.skip('#migrate', function () {
     let snapshotId;
     let codeTokenId;
 
