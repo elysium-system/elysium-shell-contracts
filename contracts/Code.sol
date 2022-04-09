@@ -1,44 +1,39 @@
 //SPDX-License-Identifier: Unlicense
 pragma solidity ^0.8.9;
 
-/*@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@
-@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@
-@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@
-@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@
-@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@
-@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@%#(//,,           .,,/(#%&@@@@@@@@@@
-@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@#.                          ,%@@@@@@@@@@@@@@@@@
-@@@@@@@@@@@@@@@@@@@@@@@@@@@#            .              %@@@@@@@@@@@@@@@@@@@@@@@@
-@@@@@@@@@@@@@@@@@@@@@@@,                ,         ,@@@@@@@@@@@@@@@@@@@@@@@@@@@@@
-@@@@@@@@@@@@@@@@@@@&                    ,      @@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@
-@@@@@@@@@@@@@@@@@        ,             ,,.  @@@@@@@@@@(%@@@@@@@@@@@@@@@@@@@@@@@@
-@@@@@@@@@@@@@@%            .,         .,,,@@@@@@@@@*,&@@@@@@@@@@@@@@@@@@@@@@@@@@
-@@@@@@@@@@@@@                ,,,,. .,,,,,,,,,##,,,,(@@@@@@@@@@@@@@@@@@@@@@@@@@@@
-@@@@@@@@@@@*                  .,,,,,,,,,,,,,,,,,,,@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@
-@@@@@@@@@@                     ,,,,,,,,,,,,,,,,,,,                      /@@@@@@@
-@@@@@@@@@,                   ,,,,,,,,,,,,,,,,,,,,,,,                    %@@@@@@@
-@@@@@@@@%            ..,,,,,,,,,,,,,,,,,,,,,,,,,,,,,,,,,,,..            @@@@@@@@
-@@@@@@@@                      ,,,,,,,,,,,,,,,,,,,,,                    @@@@@@@@@
-@@@@@@@@.                     .,,,,,,,,,,,,,,,,,,,                    @@@@@@@@@@
-@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@,,,,,,,,,,,,,,,,,,,,.                  @@@@@@@@@@@
-@@@@@@@@@@@@@@@@@@@@@@@@@@@@%,,,&@@@@,,,,,,.    .,,,               &@@@@@@@@@@@@
-@@@@@@@@@@@@@@@@@@@@@@@@@@&,%@@@@@@@@@/,,,          .,           @@@@@@@@@@@@@@@
-@@@@@@@@@@@@@@@@@@@@@@@@#&@@@@@@@@@&   .,              .      .@@@@@@@@@@@@@@@@@
-@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@(       ,                  ,@@@@@@@@@@@@@@@@@@@@
-@@@@@@@@@@@@@@@@@@@@@@@@@@@@#           .               &@@@@@@@@@@@@@@@@@@@@@@@
-@@@@@@@@@@@@@@@@@@@@@@@(                           %@@@@@@@@@@@@@@@@@@@@@@@@@@@@
-@@@@@@@@@@@@@@%/                           .(@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@
-@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@
-@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@
-@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@
-@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@
-harry830622 @@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@*/
+/*                  @@@@@@@@@@@@@             @@@@@@@@@@@@@@
+                  @@@@@@@@@@@@@@                 @@@@@@@@@@@@@@
+                @@@@@@@@@@@@@@                     @@@@@@@@@@@@@@
+              @@@@@@@@@@@@@@@                       @@@@@@@@@@@@@@@
+            @@@@@@@@@@@@@@@                           @@@@@@@@@@@@@@
+           @@@@@@@@@@@@@@                               @@@@@@@@@@@@@@
+         @@@@@@@@@@@@@@                                  @@@@@@@@@@@@@@@
+       @@@@@@@@@@@@@@@                                     @@@@@@@@@@@@@@
+      @@@@@@@@@@@@@@                                         @@@@@@@@@@@@@@
+    @@@@@@@@@@@@@@                      @                     @@@@@@@@@@@@@@@
+  @@@@@@@@@@@@@@@             @@       @@@       @@             @@@@@@@@@@@@@@@
+ @@@@@@@@@@@@@@                 @@@    @@@    @@@                 @@@@@@@@@@@@@@
+                                 @@@@@@@@@@@@@@@
+                                  @@@@@@@@@@@@@
+                          @@@@@@@@@@@@@@@@@@@@@@@@@@@@@
+                                  @@@@@@@@@@@@@
+                                 @@@@@@@@@@@@@@@
+ @@@@@@@@@@@@@@                 @@@    @@@    @@@                 @@@@@@@@@@@@@@
+  @@@@@@@@@@@@@@@             @@       @@@       @@             @@@@@@@@@@@@@@@
+    @@@@@@@@@@@@@@                      @                     @@@@@@@@@@@@@@@
+      @@@@@@@@@@@@@@                                         @@@@@@@@@@@@@@
+       @@@@@@@@@@@@@@@                                     @@@@@@@@@@@@@@
+         @@@@@@@@@@@@@@@                                 @@@@@@@@@@@@@@@
+           @@@@@@@@@@@@@@                               @@@@@@@@@@@@@@
+             @@@@@@@@@@@@@@                           @@@@@@@@@@@@@@
+              @@@@@@@@@@@@@@@                       @@@@@@@@@@@@@@@
+                @@@@@@@@@@@@@@                     @@@@@@@@@@@@@@
+                  @harry830622                   @@@@@@@@@@@@@@               */
 
 import "@openzeppelin/contracts/access/Ownable.sol";
 import "@openzeppelin/contracts/token/ERC1155/ERC1155.sol";
 import "@openzeppelin/contracts/token/ERC1155/extensions/ERC1155Burnable.sol";
 import "@openzeppelin/contracts/token/common/ERC2981.sol";
-import "@openzeppelin/contracts/utils/cryptography/MerkleProof.sol";
 import "@openzeppelin/contracts/utils/structs/BitMaps.sol";
 import "@openzeppelin/contracts/utils/cryptography/ECDSA.sol";
 
@@ -130,9 +125,7 @@ contract Code is Ownable, ERC1155, ERC1155Burnable, ERC2981 {
 
     // TODO: Check URI
     constructor(address em)
-        ERC1155(
-            "ipfs://QmaX42ozSe1PCyi3tprCn64RmyK17j1s2f2szyqPUHT5BP/{id}.json"
-        )
+        ERC1155("ipfs://QmeRSRWAwBt5xouUU1GCsvhU8pNYdEyn1xxtwmWWzYyxrD")
     {
         _em = IERC1155(em);
         _signer = owner();
@@ -141,7 +134,7 @@ contract Code is Ownable, ERC1155, ERC1155Burnable, ERC2981 {
         _setDefaultRoyalty(owner(), 750);
 
         // TODO:
-        uint256 reserveQuantity = 999;
+        uint256 reserveQuantity = 400;
         totalNumMintedTokens = reserveQuantity;
         _mint(owner(), nextTokenId, reserveQuantity, "");
         ++nextTokenId;
@@ -154,6 +147,18 @@ contract Code is Ownable, ERC1155, ERC1155Burnable, ERC2981 {
         returns (bool)
     {
         return super.supportsInterface(interfaceId);
+    }
+
+    function isFreeMintTicketUsed(uint256 ticket) external view returns (bool) {
+        return _isFreeMintTicketUsed.get(ticket);
+    }
+
+    function isPublicMintTicketUsed(uint256 ticket)
+        external
+        view
+        returns (bool)
+    {
+        return _isPublicMintTicketUsed.get(ticket);
     }
 
     function setDefaultRoyalty(address receiver, uint96 feeNumerator)
@@ -242,9 +247,13 @@ contract Code is Ownable, ERC1155, ERC1155Burnable, ERC2981 {
 
         if (freeMintQuantity > 0) {
             if (_isFreeMintTicketUsed.get(freeMintTicket)) {
-                revert TicketUsed();
+                if (whitelistMintQuantity + emWhitelistMintQuantity == 0) {
+                    revert TicketUsed();
+                }
+                freeMintQuantity = 0;
+            } else {
+                _isFreeMintTicketUsed.set(freeMintTicket);
             }
-            _isFreeMintTicketUsed.set(freeMintTicket);
         }
 
         if (whitelistMintQuantity + emWhitelistMintQuantity > 0) {
@@ -402,6 +411,7 @@ contract Code is Ownable, ERC1155, ERC1155Burnable, ERC2981 {
 
         uint256 newShellTokenId = _shell.nextTokenId();
         _shell.mint(msg.sender, 1);
+        _shell.setTokenInvalid(newShellTokenId);
 
         uint256 newRecodedShellTokenId = _recodedShell.nextTokenId();
         _recodedShell.mint(msg.sender, 1);

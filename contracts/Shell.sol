@@ -1,38 +1,34 @@
 //SPDX-License-Identifier: Unlicense
 pragma solidity ^0.8.9;
 
-/*@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@
-@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@
-@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@
-@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@
-@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@
-@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@%#(//,,           .,,/(#%&@@@@@@@@@@
-@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@#.                          ,%@@@@@@@@@@@@@@@@@
-@@@@@@@@@@@@@@@@@@@@@@@@@@@#            .              %@@@@@@@@@@@@@@@@@@@@@@@@
-@@@@@@@@@@@@@@@@@@@@@@@,                ,         ,@@@@@@@@@@@@@@@@@@@@@@@@@@@@@
-@@@@@@@@@@@@@@@@@@@&                    ,      @@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@
-@@@@@@@@@@@@@@@@@        ,             ,,.  @@@@@@@@@@(%@@@@@@@@@@@@@@@@@@@@@@@@
-@@@@@@@@@@@@@@%            .,         .,,,@@@@@@@@@*,&@@@@@@@@@@@@@@@@@@@@@@@@@@
-@@@@@@@@@@@@@                ,,,,. .,,,,,,,,,##,,,,(@@@@@@@@@@@@@@@@@@@@@@@@@@@@
-@@@@@@@@@@@*                  .,,,,,,,,,,,,,,,,,,,@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@
-@@@@@@@@@@                     ,,,,,,,,,,,,,,,,,,,                      /@@@@@@@
-@@@@@@@@@,                   ,,,,,,,,,,,,,,,,,,,,,,,                    %@@@@@@@
-@@@@@@@@%            ..,,,,,,,,,,,,,,,,,,,,,,,,,,,,,,,,,,,..            @@@@@@@@
-@@@@@@@@                      ,,,,,,,,,,,,,,,,,,,,,                    @@@@@@@@@
-@@@@@@@@.                     .,,,,,,,,,,,,,,,,,,,                    @@@@@@@@@@
-@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@,,,,,,,,,,,,,,,,,,,,.                  @@@@@@@@@@@
-@@@@@@@@@@@@@@@@@@@@@@@@@@@@%,,,&@@@@,,,,,,.    .,,,               &@@@@@@@@@@@@
-@@@@@@@@@@@@@@@@@@@@@@@@@@&,%@@@@@@@@@/,,,          .,           @@@@@@@@@@@@@@@
-@@@@@@@@@@@@@@@@@@@@@@@@#&@@@@@@@@@&   .,              .      .@@@@@@@@@@@@@@@@@
-@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@(       ,                  ,@@@@@@@@@@@@@@@@@@@@
-@@@@@@@@@@@@@@@@@@@@@@@@@@@@#           .               &@@@@@@@@@@@@@@@@@@@@@@@
-@@@@@@@@@@@@@@@@@@@@@@@(                           %@@@@@@@@@@@@@@@@@@@@@@@@@@@@
-@@@@@@@@@@@@@@%/                           .(@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@
-@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@
-@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@
-@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@
-@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@
-harry830622 @@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@*/
+/*                  @@@@@@@@@@@@@             @@@@@@@@@@@@@@
+                  @@@@@@@@@@@@@@                 @@@@@@@@@@@@@@
+                @@@@@@@@@@@@@@                     @@@@@@@@@@@@@@
+              @@@@@@@@@@@@@@@                       @@@@@@@@@@@@@@@
+            @@@@@@@@@@@@@@@                           @@@@@@@@@@@@@@
+           @@@@@@@@@@@@@@                               @@@@@@@@@@@@@@
+         @@@@@@@@@@@@@@                                  @@@@@@@@@@@@@@@
+       @@@@@@@@@@@@@@@                                     @@@@@@@@@@@@@@
+      @@@@@@@@@@@@@@                                         @@@@@@@@@@@@@@
+    @@@@@@@@@@@@@@                      @                     @@@@@@@@@@@@@@@
+  @@@@@@@@@@@@@@@             @@       @@@       @@             @@@@@@@@@@@@@@@
+ @@@@@@@@@@@@@@                 @@@    @@@    @@@                 @@@@@@@@@@@@@@
+                                 @@@@@@@@@@@@@@@
+                                  @@@@@@@@@@@@@
+                          @@@@@@@@@@@@@@@@@@@@@@@@@@@@@
+                                  @@@@@@@@@@@@@
+                                 @@@@@@@@@@@@@@@
+ @@@@@@@@@@@@@@                 @@@    @@@    @@@                 @@@@@@@@@@@@@@
+  @@@@@@@@@@@@@@@             @@       @@@       @@             @@@@@@@@@@@@@@@
+    @@@@@@@@@@@@@@                      @                     @@@@@@@@@@@@@@@
+      @@@@@@@@@@@@@@                                         @@@@@@@@@@@@@@
+       @@@@@@@@@@@@@@@                                     @@@@@@@@@@@@@@
+         @@@@@@@@@@@@@@@                                 @@@@@@@@@@@@@@@
+           @@@@@@@@@@@@@@                               @@@@@@@@@@@@@@
+             @@@@@@@@@@@@@@                           @@@@@@@@@@@@@@
+              @@@@@@@@@@@@@@@                       @@@@@@@@@@@@@@@
+                @@@@@@@@@@@@@@                     @@@@@@@@@@@@@@
+                  @harry830622                   @@@@@@@@@@@@@@               */
 
 import "@openzeppelin/contracts/access/Ownable.sol";
 import "erc721a/contracts/extensions/ERC721ABurnable.sol";
@@ -41,16 +37,14 @@ import "@openzeppelin/contracts/utils/structs/BitMaps.sol";
 
 error NotCode();
 error InvalidToken();
-error AlreadyRevealed();
 
 contract Shell is Ownable, ERC721ABurnable, ERC2981 {
     using BitMaps for BitMaps.BitMap;
 
     // TODO:
     string private _baseTokenURI = "";
-    mapping(uint256 => uint256) private _tokenIdToMetadataId;
 
-    BitMaps.BitMap private _isTokenValid;
+    BitMaps.BitMap private _isTokenInvalid;
 
     address private immutable _code;
 
@@ -79,32 +73,12 @@ contract Shell is Ownable, ERC721ABurnable, ERC2981 {
         return super.supportsInterface(interfaceId);
     }
 
-    function _startTokenId() internal pure override returns (uint256) {
-        return 1;
+    function isTokenValid(uint256 tokenId) external view returns (bool) {
+        return !_isTokenInvalid.get(tokenId);
     }
 
-    function tokenURI(uint256 tokenId)
-        public
-        view
-        override
-        returns (string memory)
-    {
-        if (!_exists(tokenId)) {
-            revert URIQueryForNonexistentToken();
-        }
-
-        uint256 metadataId = _tokenIdToMetadataId[tokenId];
-        if (metadataId == 0 || !_isTokenValid.get(tokenId)) {
-            return ""; // TODO:
-        }
-
-        string memory baseURI = _baseURI();
-        return
-            bytes(baseURI).length > 0
-                ? string(
-                    abi.encodePacked(baseURI, Strings.toString(metadataId))
-                )
-                : "";
+    function _startTokenId() internal pure override returns (uint256) {
+        return 1;
     }
 
     function _baseURI() internal view override returns (string memory) {
@@ -113,13 +87,6 @@ contract Shell is Ownable, ERC721ABurnable, ERC2981 {
 
     function setBaseTokenURI(string calldata baseTokenURI) external onlyOwner {
         _baseTokenURI = baseTokenURI;
-    }
-
-    function reveal(uint256 tokenId, uint256 metadataId) external onlyOwner {
-        if (_tokenIdToMetadataId[tokenId] != 0) {
-            revert AlreadyRevealed();
-        }
-        _tokenIdToMetadataId[tokenId] = metadataId;
     }
 
     function setDefaultRoyalty(address receiver, uint96 feeNumerator)
@@ -153,8 +120,12 @@ contract Shell is Ownable, ERC721ABurnable, ERC2981 {
         _mint(to, quantity, "", false);
     }
 
+    function setTokenInvalid(uint256 tokenId) external onlyCode {
+        _isTokenInvalid.set(tokenId);
+    }
+
     function setTokenValid(uint256 tokenId) external onlyCode {
-        _isTokenValid.set(tokenId);
+        _isTokenInvalid.unset(tokenId);
     }
 
     function _beforeTokenTransfers(
@@ -172,7 +143,7 @@ contract Shell is Ownable, ERC721ABurnable, ERC2981 {
             tokenId < startTokenId + quantity;
             ++tokenId
         ) {
-            if (!_isTokenValid.get(tokenId)) {
+            if (_isTokenInvalid.get(tokenId)) {
                 revert InvalidToken();
             }
         }

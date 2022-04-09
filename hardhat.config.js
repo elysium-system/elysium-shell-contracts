@@ -5,8 +5,64 @@ require('@nomiclabs/hardhat-waffle');
 require('hardhat-gas-reporter');
 require('solidity-coverage');
 
-task('rs', 'Reveal shell')
-  .addParam('address', `Randomizer's address`)
+const axios = require('axios').default;
+
+const { CODE, RANDOMIZER, API_URL = 'http://localhost:3000' } = process.env;
+
+task('setPreSaleMintTime', 'Set pre sale mint time')
+  .addOptionalParam('address', `Code's address`, CODE)
+  .addParam('start', `Start time`)
+  .addParam('end', `End time`)
+  .setAction(async (args) => {
+    const [owner] = await ethers.getSigners();
+    const code = await ethers.getContractAt('Code', args.address);
+    const tx = await code
+      .connect(owner)
+      .setPreSaleMintTime(args.start, args.end);
+    const receipt = await tx.wait();
+    console.log(receipt.transactionHash);
+  });
+
+task('setPublicSaleMintTime', 'Set public sale mint time')
+  .addOptionalParam('address', `Code's address`, CODE)
+  .addParam('start', `Start time`)
+  .addParam('end', `End time`)
+  .setAction(async (args) => {
+    const [owner] = await ethers.getSigners();
+    const code = await ethers.getContractAt('Code', args.address);
+    const tx = await code
+      .connect(owner)
+      .setPublicSaleMintTime(args.start, args.end);
+    const receipt = await tx.wait();
+    console.log(receipt.transactionHash);
+  });
+
+task('publicSaleMint', 'Public sale mint')
+  .addOptionalParam('address', `Code's address`, CODE)
+  .addOptionalParam('index', `Account's index`, 0, types.int)
+  .addParam('quantity', `Quantity`)
+  .setAction(async (args) => {
+    const [, ...accounts] = await ethers.getSigners();
+    const accountAddrs = await Promise.all(
+      accounts.map((account) => account.getAddress()),
+    );
+    const res = await axios.get(
+      `${API_URL}/public/${accountAddrs[args.index]}`,
+    );
+    const { ticket, signature } = res.data;
+    const code = await ethers.getContractAt('Code', args.address);
+    const PRICE_PER_TOKEN = await code.PRICE_PER_TOKEN();
+    const tx = await code
+      .connect(accounts[args.index])
+      .publicSaleMint(args.quantity, ticket, signature, {
+        value: PRICE_PER_TOKEN.mul(args.quantity),
+      });
+    const receipt = await tx.wait();
+    console.log(receipt.transactionHash);
+  });
+
+task('reveal', 'Reveal shell')
+  .addOptionalParam('address', `Randomizer's address`, RANDOMIZER)
   .addParam('id', `Shell's ID`)
   .addParam('timestamp', `Reveal request's timestamp`)
   .setAction(async (args) => {
@@ -23,8 +79,8 @@ task('rs', 'Reveal shell')
     console.log(receipt.transactionHash);
   });
 
-task('w', 'Withdraw LINK')
-  .addParam('address', `Randomizer's address`)
+task('withdrawLINK', 'Withdraw LINK')
+  .addOptionalParam('address', `Randomizer's address`, RANDOMIZER)
   .addParam('to', `To's address`)
   .addParam('amount', `Amount`)
   .setAction(async (args) => {
