@@ -77,6 +77,7 @@ contract Code is Ownable, ERC1155, ERC1155Burnable, ERC2981 {
     using BitMaps for BitMaps.BitMap;
 
     uint256 public constant MAX_TOTAL_SUPPLY = 9999;
+    uint256 public constant PRE_SALE_MAX_TOTAL_SUPPLY = 9999 - 1500;
     uint256 public constant MAX_NUM_MINTS_PER_TX = 3;
     uint256 public constant PRICE_PER_TOKEN = 0.12 ether;
 
@@ -303,7 +304,7 @@ contract Code is Ownable, ERC1155, ERC1155Burnable, ERC2981 {
         if (quantity == 0) {
             revert ZeroQuantity();
         }
-        if (totalNumMintedTokens + quantity > MAX_TOTAL_SUPPLY) {
+        if (totalNumMintedTokens + quantity > PRE_SALE_MAX_TOTAL_SUPPLY) {
             revert SoldOut();
         }
         totalNumMintedTokens += quantity;

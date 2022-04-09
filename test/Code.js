@@ -498,6 +498,8 @@ describe('Code', function () {
         });
 
         context('who is eligible for em whitelist mint', function () {
+          let snapshotId;
+
           const EM_HOLDER_ADDRS = [
             '0xB893AE8A1824604F6df4Dfde52E2754921ba1A73',
             '0x83e88944c888965Be39b6bAb5c01d1B3C3828802',
@@ -541,6 +543,8 @@ describe('Code', function () {
           };
 
           beforeEach(async function () {
+            snapshotId = await ethers.provider.send('evm_snapshot');
+
             await Promise.all(
               EM_HOLDER_ADDRS.map((addr) =>
                 ethers.provider.send('hardhat_impersonateAccount', [addr]),
@@ -615,6 +619,10 @@ describe('Code', function () {
                 ),
               ),
             );
+          });
+
+          afterEach(async function () {
+            await ethers.provider.send('evm_revert', [snapshotId]);
           });
 
           it('should revert if signature is invalid', async function () {
@@ -971,7 +979,7 @@ describe('Code', function () {
               );
             });
 
-            it('should mint successfully', async function () {
+            it('should mint free and whitelist successfully', async function () {
               const tokenId = await code.nextTokenId();
               await mint();
               await Promise.all(
@@ -1044,6 +1052,402 @@ describe('Code', function () {
                   expect(
                     await code.balanceOf(minterAddrs[idx], tokenId.add(idx)),
                   ).to.be.eq(1),
+                ),
+              );
+            });
+          },
+        );
+
+        context(
+          'who is eligible for free mint, whitelist mint, and em whitelist mint',
+          function () {
+            let snapshotId;
+
+            const FREE_MINT_QUANTITIES = [2, 1, 3];
+            const FREE_MINT_TICKETS = new Array(FREE_MINT_QUANTITIES.length)
+              .fill(null)
+              .map((_, idx) => idx);
+
+            const WHITELIST_MINT_ALLOWED_QUANTITIES = [2, 2, 3];
+
+            const EM_HOLDER_ADDRS = [
+              '0xB893AE8A1824604F6df4Dfde52E2754921ba1A73',
+              '0x83e88944c888965Be39b6bAb5c01d1B3C3828802',
+              '0x570DC2127F98ce3cF841f3e0038a6257E31F6A4d',
+            ];
+            const SNAPSHOTED_EM_QUANTITIES = [20, 1, 2];
+            const EM_WHITELIST_MINT_ALLOWED_QUANTITIES =
+              SNAPSHOTED_EM_QUANTITIES.map((qty) =>
+                qty >= 5 ? 3 : qty >= 2 ? 2 : 1,
+              );
+
+            let minters;
+            let minterAddrs;
+
+            let validSignatures, invalidSignatures;
+
+            const mint = async () => {
+              await FREE_MINT_QUANTITIES.reduce(async (prev, _, idx) => {
+                await prev;
+                await code
+                  .connect(minters[idx])
+                  .preSaleMint(
+                    FREE_MINT_QUANTITIES[idx],
+                    FREE_MINT_TICKETS[idx],
+                    WHITELIST_MINT_ALLOWED_QUANTITIES[idx],
+                    WHITELIST_MINT_ALLOWED_QUANTITIES[idx],
+                    EM_WHITELIST_MINT_ALLOWED_QUANTITIES[idx],
+                    EM_WHITELIST_MINT_ALLOWED_QUANTITIES[idx],
+                    SNAPSHOTED_EM_QUANTITIES[idx],
+                    validSignatures[idx],
+                    {
+                      value: PRICE_PER_TOKEN.mul(
+                        WHITELIST_MINT_ALLOWED_QUANTITIES[idx] +
+                          EM_WHITELIST_MINT_ALLOWED_QUANTITIES[idx],
+                      ),
+                    },
+                  );
+              }, Promise.resolve());
+            };
+
+            beforeEach(async function () {
+              snapshotId = await ethers.provider.send('evm_snapshot');
+
+              await Promise.all(
+                EM_HOLDER_ADDRS.map((addr) =>
+                  ethers.provider.send('hardhat_impersonateAccount', [addr]),
+                ),
+              );
+              minters = await Promise.all(
+                EM_HOLDER_ADDRS.map((addr) => ethers.getSigner(addr)),
+              );
+              minterAddrs = await Promise.all(
+                minters.map((minter) => minter.getAddress()),
+              );
+
+              await Promise.all(
+                minterAddrs.map((addr) =>
+                  ethers.provider.send('hardhat_setBalance', [
+                    addr,
+                    '0x100000000000000000000000',
+                  ]),
+                ),
+              );
+
+              validSignatures = await Promise.all(
+                FREE_MINT_QUANTITIES.map((_, idx) =>
+                  owner.signMessage(
+                    ethers.utils.arrayify(
+                      ethers.utils.solidityKeccak256(
+                        [
+                          'address',
+                          'uint256',
+                          'uint256',
+                          'uint256',
+                          'uint256',
+                          'uint256',
+                        ],
+                        [
+                          minterAddrs[idx],
+                          FREE_MINT_QUANTITIES[idx],
+                          FREE_MINT_TICKETS[idx],
+                          WHITELIST_MINT_ALLOWED_QUANTITIES[idx],
+                          EM_WHITELIST_MINT_ALLOWED_QUANTITIES[idx],
+                          SNAPSHOTED_EM_QUANTITIES[idx],
+                        ],
+                      ),
+                    ),
+                  ),
+                ),
+              );
+
+              invalidSignatures = await Promise.all(
+                FREE_MINT_QUANTITIES.map((_, idx) =>
+                  owner.signMessage(
+                    ethers.utils.arrayify(
+                      ethers.utils.solidityKeccak256(
+                        [
+                          'address',
+                          'uint256',
+                          'uint256',
+                          'uint256',
+                          'uint256',
+                          'uint256',
+                        ],
+                        [
+                          minterAddrs[idx],
+                          FREE_MINT_QUANTITIES[idx] + 1,
+                          FREE_MINT_TICKETS[idx],
+                          WHITELIST_MINT_ALLOWED_QUANTITIES[idx] + 1,
+                          EM_WHITELIST_MINT_ALLOWED_QUANTITIES[idx] + 1,
+                          0,
+                        ],
+                      ),
+                    ),
+                  ),
+                ),
+              );
+            });
+
+            afterEach(async function () {
+              await ethers.provider.send('evm_revert', [snapshotId]);
+            });
+
+            it('should revert if signature is invalid', async function () {
+              await Promise.all(
+                FREE_MINT_QUANTITIES.map((_, idx) =>
+                  expect(
+                    code
+                      .connect(minters[idx])
+                      .preSaleMint(
+                        FREE_MINT_QUANTITIES[idx],
+                        FREE_MINT_TICKETS[idx],
+                        WHITELIST_MINT_ALLOWED_QUANTITIES[idx],
+                        WHITELIST_MINT_ALLOWED_QUANTITIES[idx],
+                        EM_WHITELIST_MINT_ALLOWED_QUANTITIES[idx],
+                        EM_WHITELIST_MINT_ALLOWED_QUANTITIES[idx],
+                        SNAPSHOTED_EM_QUANTITIES[idx],
+                        invalidSignatures[idx],
+                        {
+                          value: PRICE_PER_TOKEN.mul(
+                            WHITELIST_MINT_ALLOWED_QUANTITIES[idx] +
+                              EM_WHITELIST_MINT_ALLOWED_QUANTITIES[idx],
+                          ),
+                        },
+                      ),
+                  ).to.be.revertedWith('InvalidSignature'),
+                ),
+              );
+            });
+
+            it('should revert if free mint ticket has been used', async function () {
+              await mint();
+              await Promise.all(
+                FREE_MINT_QUANTITIES.map((_, idx) =>
+                  expect(
+                    code
+                      .connect(minters[idx])
+                      .preSaleMint(
+                        FREE_MINT_QUANTITIES[idx],
+                        FREE_MINT_TICKETS[idx],
+                        0,
+                        WHITELIST_MINT_ALLOWED_QUANTITIES[idx],
+                        0,
+                        EM_WHITELIST_MINT_ALLOWED_QUANTITIES[idx],
+                        SNAPSHOTED_EM_QUANTITIES[idx],
+                        validSignatures[idx],
+                        {
+                          value: PRICE_PER_TOKEN.mul(
+                            WHITELIST_MINT_ALLOWED_QUANTITIES[idx] +
+                              EM_WHITELIST_MINT_ALLOWED_QUANTITIES[idx],
+                          ),
+                        },
+                      ),
+                  ).to.be.revertedWith('TicketUsed'),
+                ),
+              );
+            });
+
+            it('should revert if not enough ETH', async function () {
+              await Promise.all(
+                FREE_MINT_QUANTITIES.map((_, idx) =>
+                  expect(
+                    code
+                      .connect(minters[idx])
+                      .preSaleMint(
+                        FREE_MINT_QUANTITIES[idx],
+                        FREE_MINT_TICKETS[idx],
+                        WHITELIST_MINT_ALLOWED_QUANTITIES[idx],
+                        WHITELIST_MINT_ALLOWED_QUANTITIES[idx],
+                        EM_WHITELIST_MINT_ALLOWED_QUANTITIES[idx],
+                        EM_WHITELIST_MINT_ALLOWED_QUANTITIES[idx],
+                        SNAPSHOTED_EM_QUANTITIES[idx],
+                        validSignatures[idx],
+                      ),
+                  ).to.be.revertedWith('NotEnoughETH'),
+                ),
+              );
+            });
+
+            it('should revert if not enough quota', async function () {
+              await Promise.all(
+                FREE_MINT_QUANTITIES.map((_, idx) =>
+                  expect(
+                    code
+                      .connect(minters[idx])
+                      .preSaleMint(
+                        FREE_MINT_QUANTITIES[idx],
+                        FREE_MINT_TICKETS[idx],
+                        WHITELIST_MINT_ALLOWED_QUANTITIES[idx] + 1,
+                        WHITELIST_MINT_ALLOWED_QUANTITIES[idx],
+                        EM_WHITELIST_MINT_ALLOWED_QUANTITIES[idx],
+                        EM_WHITELIST_MINT_ALLOWED_QUANTITIES[idx],
+                        SNAPSHOTED_EM_QUANTITIES[idx],
+                        validSignatures[idx],
+                        {
+                          value: PRICE_PER_TOKEN.mul(
+                            WHITELIST_MINT_ALLOWED_QUANTITIES[idx] +
+                              EM_WHITELIST_MINT_ALLOWED_QUANTITIES[idx] +
+                              1,
+                          ),
+                        },
+                      ),
+                  ).to.be.revertedWith('NotEnoughQuota'),
+                ),
+              );
+
+              await Promise.all(
+                FREE_MINT_QUANTITIES.map((_, idx) =>
+                  expect(
+                    code
+                      .connect(minters[idx])
+                      .preSaleMint(
+                        FREE_MINT_QUANTITIES[idx],
+                        FREE_MINT_TICKETS[idx],
+                        WHITELIST_MINT_ALLOWED_QUANTITIES[idx],
+                        WHITELIST_MINT_ALLOWED_QUANTITIES[idx],
+                        EM_WHITELIST_MINT_ALLOWED_QUANTITIES[idx] + 1,
+                        EM_WHITELIST_MINT_ALLOWED_QUANTITIES[idx],
+                        SNAPSHOTED_EM_QUANTITIES[idx],
+                        validSignatures[idx],
+                        {
+                          value: PRICE_PER_TOKEN.mul(
+                            WHITELIST_MINT_ALLOWED_QUANTITIES[idx] +
+                              EM_WHITELIST_MINT_ALLOWED_QUANTITIES[idx] +
+                              1,
+                          ),
+                        },
+                      ),
+                  ).to.be.revertedWith('NotEnoughQuota'),
+                ),
+              );
+
+              await mint();
+
+              await Promise.all(
+                FREE_MINT_QUANTITIES.map((_, idx) =>
+                  expect(
+                    code
+                      .connect(minters[idx])
+                      .preSaleMint(
+                        FREE_MINT_QUANTITIES[idx],
+                        FREE_MINT_TICKETS[idx],
+                        1,
+                        WHITELIST_MINT_ALLOWED_QUANTITIES[idx],
+                        0,
+                        EM_WHITELIST_MINT_ALLOWED_QUANTITIES[idx],
+                        SNAPSHOTED_EM_QUANTITIES[idx],
+                        validSignatures[idx],
+                        {
+                          value: PRICE_PER_TOKEN.mul(1),
+                        },
+                      ),
+                  ).to.be.revertedWith('NotEnoughQuota'),
+                ),
+              );
+
+              await Promise.all(
+                FREE_MINT_QUANTITIES.map((_, idx) =>
+                  expect(
+                    code
+                      .connect(minters[idx])
+                      .preSaleMint(
+                        FREE_MINT_QUANTITIES[idx],
+                        FREE_MINT_TICKETS[idx],
+                        0,
+                        WHITELIST_MINT_ALLOWED_QUANTITIES[idx],
+                        1,
+                        EM_WHITELIST_MINT_ALLOWED_QUANTITIES[idx],
+                        SNAPSHOTED_EM_QUANTITIES[idx],
+                        validSignatures[idx],
+                        {
+                          value: PRICE_PER_TOKEN.mul(1),
+                        },
+                      ),
+                  ).to.be.revertedWith('NotEnoughQuota'),
+                ),
+              );
+            });
+
+            it('should mint free, whitelist and em whitelist successfully', async function () {
+              const tokenId = await code.nextTokenId();
+              await mint();
+              await Promise.all(
+                FREE_MINT_QUANTITIES.map(async (_, idx) =>
+                  expect(
+                    await code.balanceOf(minterAddrs[idx], tokenId.add(idx)),
+                  ).to.be.eq(
+                    FREE_MINT_QUANTITIES[idx] +
+                      WHITELIST_MINT_ALLOWED_QUANTITIES[idx] +
+                      EM_WHITELIST_MINT_ALLOWED_QUANTITIES[idx],
+                  ),
+                ),
+              );
+            });
+
+            it('should mint whitelist and em whitelist successfully after free mint', async function () {
+              let tokenId;
+              tokenId = await code.nextTokenId();
+              await FREE_MINT_QUANTITIES.reduce(async (prev, _, idx) => {
+                await prev;
+                await code
+                  .connect(minters[idx])
+                  .preSaleMint(
+                    FREE_MINT_QUANTITIES[idx],
+                    FREE_MINT_TICKETS[idx],
+                    WHITELIST_MINT_ALLOWED_QUANTITIES[idx] - 1,
+                    WHITELIST_MINT_ALLOWED_QUANTITIES[idx],
+                    EM_WHITELIST_MINT_ALLOWED_QUANTITIES[idx] - 1,
+                    EM_WHITELIST_MINT_ALLOWED_QUANTITIES[idx],
+                    SNAPSHOTED_EM_QUANTITIES[idx],
+                    validSignatures[idx],
+                    {
+                      value: PRICE_PER_TOKEN.mul(
+                        WHITELIST_MINT_ALLOWED_QUANTITIES[idx] -
+                          1 +
+                          EM_WHITELIST_MINT_ALLOWED_QUANTITIES[idx] -
+                          1,
+                      ),
+                    },
+                  );
+              }, Promise.resolve());
+              await Promise.all(
+                FREE_MINT_QUANTITIES.map(async (_, idx) =>
+                  expect(
+                    await code.balanceOf(minterAddrs[idx], tokenId.add(idx)),
+                  ).to.be.eq(
+                    FREE_MINT_QUANTITIES[idx] +
+                      WHITELIST_MINT_ALLOWED_QUANTITIES[idx] -
+                      1 +
+                      EM_WHITELIST_MINT_ALLOWED_QUANTITIES[idx] -
+                      1,
+                  ),
+                ),
+              );
+              tokenId = await code.nextTokenId();
+              await FREE_MINT_QUANTITIES.reduce(async (prev, _, idx) => {
+                await prev;
+                await code
+                  .connect(minters[idx])
+                  .preSaleMint(
+                    FREE_MINT_QUANTITIES[idx],
+                    FREE_MINT_TICKETS[idx],
+                    1,
+                    WHITELIST_MINT_ALLOWED_QUANTITIES[idx],
+                    1,
+                    EM_WHITELIST_MINT_ALLOWED_QUANTITIES[idx],
+                    SNAPSHOTED_EM_QUANTITIES[idx],
+                    validSignatures[idx],
+                    {
+                      value: PRICE_PER_TOKEN.mul(1 + 1),
+                    },
+                  );
+              }, Promise.resolve());
+              await Promise.all(
+                FREE_MINT_QUANTITIES.map(async (_, idx) =>
+                  expect(
+                    await code.balanceOf(minterAddrs[idx], tokenId.add(idx)),
+                  ).to.be.eq(1 + 1),
                 ),
               );
             });
