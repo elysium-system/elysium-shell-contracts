@@ -7,7 +7,12 @@ require('solidity-coverage');
 
 const axios = require('axios').default;
 
-const { CODE, RANDOMIZER, API_URL = 'http://localhost:3000' } = process.env;
+const {
+  CODE,
+  SHELL,
+  RANDOMIZER,
+  API_URL = 'http://localhost:3000',
+} = process.env;
 
 task('setPreSaleMintTime', 'Set pre sale mint time')
   .addOptionalParam('address', `Code's address`, CODE)
@@ -37,6 +42,29 @@ task('setPublicSaleMintTime', 'Set public sale mint time')
     console.log(receipt.transactionHash);
   });
 
+task('setMigrationTime', 'Set migration time')
+  .addOptionalParam('address', `Code's address`, CODE)
+  .addParam('start', `Start time`)
+  .addParam('end', `End time`)
+  .setAction(async (args) => {
+    const [owner] = await ethers.getSigners();
+    const code = await ethers.getContractAt('Code', args.address);
+    const tx = await code.connect(owner).setMigrationTime(args.start, args.end);
+    const receipt = await tx.wait();
+    console.log(receipt.transactionHash);
+  });
+
+task('setShell', 'Set shell')
+  .addOptionalParam('address', `Code's address`, CODE)
+  .addOptionalParam('shell', `Shell's address`, SHELL)
+  .setAction(async (args) => {
+    const [owner] = await ethers.getSigners();
+    const code = await ethers.getContractAt('Code', args.address);
+    const tx = await code.connect(owner).setShell(args.shell);
+    const receipt = await tx.wait();
+    console.log(receipt.transactionHash);
+  });
+
 task('publicSaleMint', 'Public sale mint')
   .addOptionalParam('address', `Code's address`, CODE)
   .addOptionalParam('index', `Account's index`, 0, types.int)
@@ -61,20 +89,54 @@ task('publicSaleMint', 'Public sale mint')
     console.log(receipt.transactionHash);
   });
 
-task('reveal', 'Reveal shell')
+task('migrate', 'Migrate code to shell')
+  .addOptionalParam('address', `Code's address`, CODE)
+  .addOptionalParam('index', `Account's index`, 0, types.int)
+  .addParam('ids', `Codes' IDs`)
+  .addParam('quantities', `Codes' quantities`)
+  .setAction(async (args) => {
+    const [, ...accounts] = await ethers.getSigners();
+    const code = await ethers.getContractAt('Code', args.address);
+    const tx = await code
+      .connect(accounts[args.index])
+      .migrate(JSON.parse(args.ids), JSON.parse(args.quantities));
+    const receipt = await tx.wait();
+    console.log(receipt.transactionHash);
+  });
+
+task('withdraw', 'Withdraw')
+  .addOptionalParam('address', `Code's address`, CODE)
+  .addParam('to', `To's address`)
+  .addParam('amount', `Amount`)
+  .setAction(async (args) => {
+    const [owner] = await ethers.getSigners();
+    const code = await ethers.getContractAt('Code', args.address);
+    const tx = await code.connect(owner).withdraw(args.to, args.amount);
+    const receipt = await tx.wait();
+    console.log(receipt.transactionHash);
+  });
+
+task('shellMetadataId', 'Shell metadata ID')
   .addOptionalParam('address', `Randomizer's address`, RANDOMIZER)
   .addParam('id', `Shell's ID`)
-  .addParam('timestamp', `Reveal request's timestamp`)
   .setAction(async (args) => {
-    const [owner, revealer] = await ethers.getSigners();
+    const randomizer = await ethers.getContractAt('Randomizer', args.address);
+    const metadataId = await randomizer.shellTokenIdToMetadataId(args.id);
+    console.log(metadataId.toString());
+  });
+
+task('requestRevealShell', 'Request reveal shell')
+  .addOptionalParam('address', `Randomizer's address`, RANDOMIZER)
+  .addParam('id', `Shell's ID`)
+  .addParam('quantity', `Quantity`)
+  .addParam('from', `Revealer's address`)
+  .addParam('timestamp', `Timestamp`)
+  .setAction(async (args) => {
+    const [owner] = await ethers.getSigners();
     const randomizer = await ethers.getContractAt('Randomizer', args.address);
     const tx = await randomizer
       .connect(owner)
-      .requestRevealForShell(
-        args.id,
-        await revealer.getAddress(),
-        args.timestamp,
-      );
+      .requestRevealShell(args.id, args.quantity, args.from, args.timestamp);
     const receipt = await tx.wait();
     console.log(receipt.transactionHash);
   });

@@ -36,7 +36,7 @@ import "@openzeppelin/contracts/utils/structs/BitMaps.sol";
 
 error NotEnoughLINK();
 error AlreadyRevealed();
-error RevealTooManyAtOnce();
+error RequestRevealTooManyAtOnce();
 
 contract Randomizer is Ownable, VRFConsumerBase {
     using BitMaps for BitMaps.BitMap;
@@ -46,10 +46,17 @@ contract Randomizer is Ownable, VRFConsumerBase {
         0x6e75b569a01ef56d18cab6a8e71e6600d6ce853834d4a5748b720d06f878b3a4;
     uint256 private constant _FEE = 0.0001 * 10**18;
 
-    mapping(bytes32 => uint256) public requestIdToShellStartTokenId;
-    mapping(uint256 => uint256) public shellStartTokenIdToQuantity;
+    uint256 public constant MAX_NUM_REVEALS_PER_TX = 10;
+
+    struct ShellData {
+        uint256 startTokenId;
+        uint256 quantity;
+    }
+    mapping(bytes32 => ShellData) public requestIdToShellData;
+
     mapping(uint256 => uint256) public shellMagicalArray;
     uint256 public numUnrevealedShells = 9999;
+
     mapping(uint256 => uint256) public shellTokenIdToMetadataId;
 
     event RequestRevealShell(
@@ -74,26 +81,22 @@ contract Randomizer is Ownable, VRFConsumerBase {
         )
     {}
 
-    function revealShell(
+    function requestRevealShell(
         uint256 startTokenId,
         uint256 quantity,
         address from,
         uint256 timestamp
     ) external onlyOwner {
-        if (quantity > 256) {
-            revert RevealTooManyAtOnce();
+        if (quantity > MAX_NUM_REVEALS_PER_TX) {
+            revert RequestRevealTooManyAtOnce();
         }
 
         bytes32 requestId = _requestRandomNumber();
 
-        requestIdToShellStartTokenId[requestId] = startTokenId;
-        shellStartTokenIdToQuantity[startTokenId] = quantity;
-
-        for (uint256 i = 0; i < quantity; ++i) {
-            if (shellTokenIdToMetadataId[startTokenId + i] != 0) {
-                revert AlreadyRevealed();
-            }
-        }
+        requestIdToShellData[requestId] = ShellData({
+            startTokenId: startTokenId,
+            quantity: quantity
+        });
 
         emit RequestRevealShell(
             requestId,
@@ -115,9 +118,17 @@ contract Randomizer is Ownable, VRFConsumerBase {
         internal
         override
     {
-        uint256 shellStartTokenId = requestIdToShellStartTokenId[requestId];
+        ShellData memory shellData = requestIdToShellData[requestId];
+        uint256 shellStartTokenId = shellData.startTokenId;
         if (shellStartTokenId != 0) {
-            uint256 quantity = shellStartTokenIdToQuantity[shellStartTokenId];
+            uint256 quantity = shellData.quantity;
+
+            for (uint256 i = 0; i < quantity; ++i) {
+                if (shellTokenIdToMetadataId[shellStartTokenId + i] != 0) {
+                    revert AlreadyRevealed();
+                }
+            }
+
             for (uint256 i = 0; i < quantity; ++i) {
                 uint256 idx = randomness % numUnrevealedShells;
 

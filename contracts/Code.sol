@@ -79,6 +79,7 @@ contract Code is Ownable, ERC1155, ERC1155Burnable, ERC2981 {
     uint256 public constant MAX_TOTAL_SUPPLY = 9999;
     uint256 public constant PRE_SALE_MAX_TOTAL_SUPPLY = 9999 - 1500;
     uint256 public constant MAX_NUM_MINTS_PER_TX = 3;
+    uint256 public constant MAX_NUM_MIGRATIONS_PER_TX = 10;
     uint256 public constant PRICE_PER_TOKEN = 0.12 ether;
 
     uint256 public preSaleMintStartTime = 2**256 - 1;
@@ -105,16 +106,18 @@ contract Code is Ownable, ERC1155, ERC1155Burnable, ERC2981 {
     IRecodedShell private _recodedShell;
 
     event Migrate(
-        address indexed from,
         uint256 indexed startTokenId,
-        uint256 quantity
+        uint256 quantity,
+        address indexed from,
+        uint256 timestamp
     );
 
     event InitiateRecode(
-        address indexed from,
         uint256 indexed shellTokenId,
         uint256 newShellTokenId,
-        uint256 newRecodedShellTokenId
+        uint256 newRecodedShellTokenId,
+        address indexed from,
+        uint256 timestamp
     );
 
     modifier onlyEOA() {
@@ -379,7 +382,7 @@ contract Code is Ownable, ERC1155, ERC1155Burnable, ERC2981 {
         for (uint256 i = 0; i < numQuantities; ++i) {
             totalQuantity += quantities[i];
         }
-        if (totalQuantity > 256) {
+        if (totalQuantity > MAX_NUM_MIGRATIONS_PER_TX) {
             revert MigrateTooManyAtOnce();
         }
 
@@ -388,7 +391,7 @@ contract Code is Ownable, ERC1155, ERC1155Burnable, ERC2981 {
         uint256 startTokenId = _shell.nextTokenId();
         _shell.mint(msg.sender, totalQuantity);
 
-        emit Migrate(msg.sender, startTokenId, totalQuantity);
+        emit Migrate(startTokenId, totalQuantity, msg.sender, blockTime);
     }
 
     function initiateRecode(uint256 shellTokenId, uint256 codeTokenId)
@@ -418,10 +421,11 @@ contract Code is Ownable, ERC1155, ERC1155Burnable, ERC2981 {
         _recodedShell.mint(msg.sender, 1);
 
         emit InitiateRecode(
-            msg.sender,
             shellTokenId,
             newShellTokenId,
-            newRecodedShellTokenId
+            newRecodedShellTokenId,
+            msg.sender,
+            blockTime
         );
     }
 
