@@ -92,7 +92,7 @@ contract Code is Ownable, ERC1155, ERC1155Burnable, ERC2981 {
     uint256 public migrationEndTime = 2**256 - 1;
     uint256 public recodingEndTime = 2**256 - 1;
 
-    BitMaps.BitMap private _isFreeMintTicketUsed;
+    mapping(address => uint256) public addressToNumMintedFrees;
     mapping(address => uint256) public addressToNumMintedWhitelists;
     mapping(address => uint256) public addressToNumMintedEmWhitelists;
     BitMaps.BitMap private _isPublicMintTicketUsed;
@@ -151,10 +151,6 @@ contract Code is Ownable, ERC1155, ERC1155Burnable, ERC2981 {
         returns (bool)
     {
         return super.supportsInterface(interfaceId);
-    }
-
-    function isFreeMintTicketUsed(uint256 ticket) external view returns (bool) {
-        return _isFreeMintTicketUsed.get(ticket);
     }
 
     function isPublicMintTicketUsed(uint256 ticket)
@@ -217,7 +213,7 @@ contract Code is Ownable, ERC1155, ERC1155Burnable, ERC2981 {
 
     function preSaleMint(
         uint256 freeMintQuantity,
-        uint256 freeMintTicket,
+        uint256 freeMintAllowedQuantity,
         uint256 whitelistMintQuantity,
         uint256 whitelistMintAllowedQuantity,
         uint256 emWhitelistMintQuantity,
@@ -237,8 +233,7 @@ contract Code is Ownable, ERC1155, ERC1155Burnable, ERC2981 {
             keccak256(
                 abi.encodePacked(
                     msg.sender,
-                    freeMintQuantity,
-                    freeMintTicket,
+                    freeMintAllowedQuantity,
                     whitelistMintAllowedQuantity,
                     emWhitelistMintAllowedQuantity,
                     snapshotedEmQuantity
@@ -250,24 +245,13 @@ contract Code is Ownable, ERC1155, ERC1155Burnable, ERC2981 {
         }
 
         if (freeMintQuantity > 0) {
-            if (_isFreeMintTicketUsed.get(freeMintTicket)) {
-                if (whitelistMintQuantity + emWhitelistMintQuantity == 0) {
-                    revert TicketUsed();
-                }
-                freeMintQuantity = 0;
-            } else {
-                _isFreeMintTicketUsed.set(freeMintTicket);
-            }
-        }
-
-        if (whitelistMintQuantity + emWhitelistMintQuantity > 0) {
             if (
-                msg.value <
-                (whitelistMintQuantity + emWhitelistMintQuantity) *
-                    PRICE_PER_TOKEN
+                addressToNumMintedFrees[msg.sender] + freeMintQuantity >
+                freeMintAllowedQuantity
             ) {
-                revert NotEnoughETH();
+                revert NotEnoughQuota();
             }
+            addressToNumMintedFrees[msg.sender] += freeMintQuantity;
         }
 
         if (whitelistMintQuantity > 0) {
@@ -312,6 +296,13 @@ contract Code is Ownable, ERC1155, ERC1155Burnable, ERC2981 {
         }
         totalNumMintedTokens += quantity;
 
+        if (
+            msg.value <
+            (whitelistMintQuantity + emWhitelistMintQuantity) * PRICE_PER_TOKEN
+        ) {
+            revert NotEnoughETH();
+        }
+
         _mint(msg.sender, nextTokenId, quantity, "");
         ++nextTokenId;
     }
@@ -341,10 +332,6 @@ contract Code is Ownable, ERC1155, ERC1155Burnable, ERC2981 {
         }
         _isPublicMintTicketUsed.set(ticket);
 
-        if (msg.value < quantity * PRICE_PER_TOKEN) {
-            revert NotEnoughETH();
-        }
-
         if (quantity > MAX_NUM_MINTS_PER_TX) {
             revert MintTooManyAtOnce();
         }
@@ -356,6 +343,10 @@ contract Code is Ownable, ERC1155, ERC1155Burnable, ERC2981 {
             revert SoldOut();
         }
         totalNumMintedTokens += quantity;
+
+        if (msg.value < quantity * PRICE_PER_TOKEN) {
+            revert NotEnoughETH();
+        }
 
         _mint(msg.sender, nextTokenId, quantity, "");
         ++nextTokenId;

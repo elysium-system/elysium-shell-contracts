@@ -197,6 +197,9 @@ module.exports = {
       },
     },
   },
+  mocha: {
+    timeout: 60 * 60 * 1000,
+  },
   gasReporter: {
     enabled: process.env.REPORT_GAS === '1',
     currency: 'USD',

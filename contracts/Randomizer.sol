@@ -152,7 +152,7 @@ contract Randomizer is Ownable, VRFConsumerBase {
 
                 emit RevealShell(requestId, tokenId, metadataId, randomness);
 
-                randomness >>= 1;
+                randomness >>= 16;
             }
         }
     }
