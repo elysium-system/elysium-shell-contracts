@@ -7,12 +7,7 @@ require('solidity-coverage');
 
 const axios = require('axios').default;
 
-const {
-  CODE,
-  SHELL,
-  RANDOMIZER,
-  API_URL = 'http://localhost:3000',
-} = process.env;
+const { CODE, RANDOMIZER, API_URL = 'http://localhost:3000' } = process.env;
 
 task('setPreSaleMintTime', 'Set pre sale mint time')
   .addOptionalParam('address', `Code's address`, CODE)
@@ -56,7 +51,7 @@ task('setMigrationTime', 'Set migration time')
 
 task('setShell', 'Set shell')
   .addOptionalParam('address', `Code's address`, CODE)
-  .addOptionalParam('shell', `Shell's address`, SHELL)
+  .addParam('shell', `Shell's address`)
   .setAction(async (args) => {
     const [owner] = await ethers.getSigners();
     const code = await ethers.getContractAt('Code', args.address);

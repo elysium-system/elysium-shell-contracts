@@ -34,6 +34,7 @@ import "@openzeppelin/contracts/access/Ownable.sol";
 import "erc721a/contracts/extensions/ERC721ABurnable.sol";
 import "@openzeppelin/contracts/token/common/ERC2981.sol";
 import "@openzeppelin/contracts/utils/structs/BitMaps.sol";
+import "@openzeppelin/contracts/utils/cryptography/MerkleProof.sol";
 
 error NotCode();
 error InvalidToken();
@@ -41,14 +42,13 @@ error InvalidToken();
 contract Shell is Ownable, ERC721ABurnable, ERC2981 {
     using BitMaps for BitMaps.BitMap;
 
-    // TODO:
-    string private _baseTokenURI = "";
+    string private _baseTokenURI;
 
     BitMaps.BitMap private _isTokenInvalid;
 
     address private immutable _code;
 
-    // TODO: Merkle tree root hash for provenance
+    bytes32 provenanceMerkleRoot;
 
     modifier onlyCode() {
         if (msg.sender != _code) {
@@ -71,10 +71,6 @@ contract Shell is Ownable, ERC721ABurnable, ERC2981 {
         returns (bool)
     {
         return super.supportsInterface(interfaceId);
-    }
-
-    function isTokenValid(uint256 tokenId) external view returns (bool) {
-        return !_isTokenInvalid.get(tokenId);
     }
 
     function _startTokenId() internal pure override returns (uint256) {
@@ -116,6 +112,19 @@ contract Shell is Ownable, ERC721ABurnable, ERC2981 {
         return _numberBurned(owner);
     }
 
+    function isTokenValid(uint256 tokenId) external view returns (bool) {
+        return !_isTokenInvalid.get(tokenId);
+    }
+
+    function verifyProvenance(
+        uint256 metadataId,
+        string calldata cid,
+        bytes32[] calldata merkleProofs
+    ) external view returns (bool) {
+        bytes32 leaf = keccak256(abi.encodePacked(metadataId, cid));
+        return MerkleProof.verify(merkleProofs, provenanceMerkleRoot, leaf);
+    }
+
     function mint(address to, uint256 quantity) external onlyCode {
         _mint(to, quantity, "", false);
     }
@@ -126,6 +135,10 @@ contract Shell is Ownable, ERC721ABurnable, ERC2981 {
 
     function setTokenValid(uint256 tokenId) external onlyCode {
         _isTokenInvalid.unset(tokenId);
+    }
+
+    function setProvenanceMerkleRoot(bytes32 root) external onlyOwner {
+        provenanceMerkleRoot = root;
     }
 
     function _beforeTokenTransfers(
