@@ -54,23 +54,7 @@ error MigrateTooManyAtOnce();
 interface IShell {
     function nextTokenId() external view returns (uint256);
 
-    function burn(uint256 tokenId) external;
-
     function mint(address to, uint256 quantity) external;
-
-    function setTokenInvalid(uint256 tokenId) external;
-
-    function setTokenValid(uint256 tokenId) external;
-}
-
-interface IRecodedShell {
-    function nextTokenId() external view returns (uint256);
-
-    function burn(uint256 tokenId) external;
-
-    function mint(address to, uint256 quantity) external;
-
-    function setTokenValid(uint256 tokenId) external;
 }
 
 contract Code is Ownable, ERC1155, ERC1155Burnable, ERC2981 {
@@ -85,12 +69,10 @@ contract Code is Ownable, ERC1155, ERC1155Burnable, ERC2981 {
     uint256 public preSaleMintStartTime = 2**256 - 1;
     uint256 public publicMintStartTime = 2**256 - 1;
     uint256 public migrationStartTime = 2**256 - 1;
-    uint256 public recodingStartTime = 2**256 - 1;
 
     uint256 public preSaleMintEndTime = 2**256 - 1;
     uint256 public publicMintEndTime = 2**256 - 1;
     uint256 public migrationEndTime = 2**256 - 1;
-    uint256 public recodingEndTime = 2**256 - 1;
 
     mapping(address => uint256) public addressToNumMintedFrees;
     mapping(address => uint256) public addressToNumMintedWhitelists;
@@ -100,24 +82,14 @@ contract Code is Ownable, ERC1155, ERC1155Burnable, ERC2981 {
     uint256 public nextTokenId = 1;
     uint256 public totalNumMintedTokens;
 
-    IERC1155 private immutable _em;
+    IERC1155 public immutable em;
     address private immutable _signer;
-    IShell private _shell;
-    IRecodedShell private _recodedShell;
+    IShell public shell;
 
     event Migrate(
         uint256 indexed startTokenId,
         uint256 quantity,
-        address indexed from,
-        uint256 timestamp
-    );
-
-    event InitiateRecode(
-        uint256 indexed shellTokenId,
-        uint256 newShellTokenId,
-        uint256 newRecodedShellTokenId,
-        address indexed from,
-        uint256 timestamp
+        address indexed from
     );
 
     modifier onlyEOA() {
@@ -128,10 +100,10 @@ contract Code is Ownable, ERC1155, ERC1155Burnable, ERC2981 {
     }
 
     // TODO: Check URI
-    constructor(address em)
+    constructor(address em_)
         ERC1155("ipfs://QmeRSRWAwBt5xouUU1GCsvhU8pNYdEyn1xxtwmWWzYyxrD")
     {
-        _em = IERC1155(em);
+        em = IERC1155(em_);
         _signer = owner();
 
         // TODO: Update royalty info
@@ -195,20 +167,8 @@ contract Code is Ownable, ERC1155, ERC1155Burnable, ERC2981 {
         migrationEndTime = end;
     }
 
-    function setRecodingTime(uint256 start, uint256 end) external onlyOwner {
-        if (end <= start) {
-            revert();
-        }
-        recodingStartTime = start;
-        recodingEndTime = end;
-    }
-
     function setShell(address addr) external onlyOwner {
-        _shell = IShell(addr);
-    }
-
-    function setRecodedShell(address addr) external onlyOwner {
-        _recodedShell = IRecodedShell(addr);
+        shell = IShell(addr);
     }
 
     function preSaleMint(
@@ -278,7 +238,7 @@ contract Code is Ownable, ERC1155, ERC1155Burnable, ERC2981 {
             ] += emWhitelistMintQuantity;
 
             if (
-                _em.balanceOf(msg.sender, 0) + _em.balanceOf(msg.sender, 1) <
+                em.balanceOf(msg.sender, 0) + em.balanceOf(msg.sender, 1) <
                 snapshotedEmQuantity
             ) {
                 revert PaperHand();
@@ -364,7 +324,7 @@ contract Code is Ownable, ERC1155, ERC1155Burnable, ERC2981 {
             revert Ended();
         }
 
-        if (address(_shell) == address(0)) {
+        if (address(shell) == address(0)) {
             revert ShellNotSet();
         }
 
@@ -379,85 +339,10 @@ contract Code is Ownable, ERC1155, ERC1155Burnable, ERC2981 {
 
         burnBatch(msg.sender, ids, quantities);
 
-        uint256 startTokenId = _shell.nextTokenId();
-        _shell.mint(msg.sender, totalQuantity);
+        uint256 startTokenId = shell.nextTokenId();
+        shell.mint(msg.sender, totalQuantity);
 
-        emit Migrate(startTokenId, totalQuantity, msg.sender, blockTime);
-    }
-
-    function initiateRecode(uint256 shellTokenId, uint256 codeTokenId)
-        external
-        onlyEOA
-    {
-        uint256 blockTime = block.timestamp;
-        if (blockTime < recodingStartTime) {
-            revert NotStarted();
-        }
-        if (blockTime >= recodingEndTime) {
-            revert Ended();
-        }
-
-        if (address(_shell) == address(0)) {
-            revert ShellNotSet();
-        }
-
-        burn(msg.sender, codeTokenId, 1);
-        _shell.burn(shellTokenId);
-
-        uint256 newShellTokenId = _shell.nextTokenId();
-        _shell.mint(msg.sender, 1);
-        _shell.setTokenInvalid(newShellTokenId);
-
-        uint256 newRecodedShellTokenId = _recodedShell.nextTokenId();
-        _recodedShell.mint(msg.sender, 1);
-
-        emit InitiateRecode(
-            shellTokenId,
-            newShellTokenId,
-            newRecodedShellTokenId,
-            msg.sender,
-            blockTime
-        );
-    }
-
-    function recode(
-        uint256 shellTokenId,
-        uint256 newShellTokenId,
-        uint256 newRecodedShellTokenId,
-        bool isNewShellOneOfOne,
-        bytes calldata signature
-    ) external onlyEOA {
-        uint256 blockTime = block.timestamp;
-        if (blockTime < recodingStartTime) {
-            revert NotStarted();
-        }
-
-        if (address(_shell) == address(0)) {
-            revert ShellNotSet();
-        }
-
-        bytes32 hash = ECDSA.toEthSignedMessageHash(
-            keccak256(
-                abi.encodePacked(
-                    msg.sender,
-                    shellTokenId,
-                    newShellTokenId,
-                    newRecodedShellTokenId,
-                    isNewShellOneOfOne
-                )
-            )
-        );
-        if (ECDSA.recover(hash, signature) != _signer) {
-            revert InvalidSignature();
-        }
-
-        _recodedShell.setTokenValid(newRecodedShellTokenId);
-
-        if (isNewShellOneOfOne) {
-            _shell.setTokenValid(newShellTokenId);
-        } else {
-            _shell.burn(newShellTokenId);
-        }
+        emit Migrate(startTokenId, totalQuantity, msg.sender);
     }
 
     function withdraw(address to, uint256 amount) external onlyOwner {

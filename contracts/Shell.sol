@@ -36,7 +36,7 @@ import "@openzeppelin/contracts/token/common/ERC2981.sol";
 import "@openzeppelin/contracts/utils/structs/BitMaps.sol";
 import "@openzeppelin/contracts/utils/cryptography/MerkleProof.sol";
 
-error NotCode();
+error NotAuthorized();
 error InvalidToken();
 
 contract Shell is Ownable, ERC721ABurnable, ERC2981 {
@@ -46,20 +46,18 @@ contract Shell is Ownable, ERC721ABurnable, ERC2981 {
 
     BitMaps.BitMap private _isTokenInvalid;
 
-    address private immutable _code;
+    mapping(address => bool) private _isAuthorized;
 
     bytes32 provenanceMerkleRoot;
 
-    modifier onlyCode() {
-        if (msg.sender != _code) {
-            revert NotCode();
+    modifier onlyAuthorized() {
+        if (!_isAuthorized[msg.sender]) {
+            revert NotAuthorized();
         }
         _;
     }
 
-    constructor(address code) ERC721A("Elysium Shell", "ES") {
-        _code = code;
-
+    constructor() ERC721A("Elysium Shell", "ES") {
         // TODO: Update royalty info
         _setDefaultRoyalty(owner(), 750);
     }
@@ -125,16 +123,20 @@ contract Shell is Ownable, ERC721ABurnable, ERC2981 {
         return MerkleProof.verify(merkleProofs, provenanceMerkleRoot, leaf);
     }
 
-    function mint(address to, uint256 quantity) external onlyCode {
+    function mint(address to, uint256 quantity) external onlyAuthorized {
         _mint(to, quantity, "", false);
     }
 
-    function setTokenInvalid(uint256 tokenId) external onlyCode {
+    function setTokenInvalid(uint256 tokenId) external onlyAuthorized {
         _isTokenInvalid.set(tokenId);
     }
 
-    function setTokenValid(uint256 tokenId) external onlyCode {
+    function setTokenValid(uint256 tokenId) external onlyAuthorized {
         _isTokenInvalid.unset(tokenId);
+    }
+
+    function setAuthorized(address addr, bool isAuthorized) external onlyOwner {
+        _isAuthorized[addr] = isAuthorized;
     }
 
     function setProvenanceMerkleRoot(bytes32 root) external onlyOwner {

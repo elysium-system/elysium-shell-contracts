@@ -62,9 +62,7 @@ contract Randomizer is Ownable, VRFConsumerBase {
     event RequestRevealShell(
         bytes32 indexed requestId,
         uint256 indexed startTokenId,
-        uint256 quantity,
-        address indexed from,
-        uint256 timestamp
+        uint256 quantity
     );
     event RevealShell(
         bytes32 indexed requestId,
@@ -81,12 +79,10 @@ contract Randomizer is Ownable, VRFConsumerBase {
         )
     {}
 
-    function requestRevealShell(
-        uint256 startTokenId,
-        uint256 quantity,
-        address from,
-        uint256 timestamp
-    ) external onlyOwner {
+    function requestRevealShell(uint256 startTokenId, uint256 quantity)
+        external
+        onlyOwner
+    {
         if (quantity > MAX_NUM_REVEALS_PER_TX) {
             revert RequestRevealTooManyAtOnce();
         }
@@ -98,13 +94,7 @@ contract Randomizer is Ownable, VRFConsumerBase {
             quantity: quantity
         });
 
-        emit RequestRevealShell(
-            requestId,
-            startTokenId,
-            quantity,
-            from,
-            timestamp
-        );
+        emit RequestRevealShell(requestId, startTokenId, quantity);
     }
 
     function _requestRandomNumber() internal returns (bytes32 requestId) {

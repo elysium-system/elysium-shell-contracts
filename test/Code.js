@@ -1931,8 +1931,10 @@ describe('Code', function () {
       snapshotId = await ethers.provider.send('evm_snapshot');
 
       const Shell = await ethers.getContractFactory('Shell');
-      shell = await Shell.deploy(code.address);
+      shell = await Shell.deploy();
       await shell.deployed();
+
+      await shell.setAuthorized(code.address, true);
 
       await code.connect(owner).setShell(shell.address);
       await code
