@@ -101,7 +101,7 @@ contract Code is Ownable, ERC1155, ERC1155Burnable, ERC2981 {
 
     // TODO: Check URI
     constructor(address em_)
-        ERC1155("ipfs://QmeRSRWAwBt5xouUU1GCsvhU8pNYdEyn1xxtwmWWzYyxrD")
+        ERC1155("ipfs://QmZoL8LSx4GZZkq5ZLDJCFWvHYS41uaA4y3bFMjo8saj71")
     {
         em = IERC1155(em_);
         _signer = owner();
@@ -123,6 +123,11 @@ contract Code is Ownable, ERC1155, ERC1155Burnable, ERC2981 {
         returns (bool)
     {
         return super.supportsInterface(interfaceId);
+    }
+
+    // TODO:
+    function contractURI() external view returns (string memory) {
+        return "ipfs://QmZaaLDwF14pird7tqJTMpGyqycqDxbqi7LUMwD696fG1o";
     }
 
     function isPublicMintTicketUsed(uint256 ticket)

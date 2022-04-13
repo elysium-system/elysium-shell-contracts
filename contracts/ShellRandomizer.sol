@@ -38,7 +38,7 @@ error NotEnoughLINK();
 error AlreadyRevealed();
 error RequestRevealTooManyAtOnce();
 
-contract Randomizer is Ownable, VRFConsumerBase {
+contract ShellRandomizer is Ownable, VRFConsumerBase {
     using BitMaps for BitMaps.BitMap;
 
     // TODO:

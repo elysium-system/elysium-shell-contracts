@@ -42,7 +42,8 @@ error InvalidToken();
 contract Shell is Ownable, ERC721ABurnable, ERC2981 {
     using BitMaps for BitMaps.BitMap;
 
-    string private _baseTokenURI;
+    // TODO:
+    string private _baseTokenURI = "https://api.elysiumshell.xyz/shell/";
 
     BitMaps.BitMap private _isTokenInvalid;
 
@@ -57,7 +58,7 @@ contract Shell is Ownable, ERC721ABurnable, ERC2981 {
         _;
     }
 
-    constructor() ERC721A("Elysium Shell", "ES") {
+    constructor() ERC721A("E-Shell", "ES") {
         // TODO: Update royalty info
         _setDefaultRoyalty(owner(), 750);
     }
@@ -69,6 +70,11 @@ contract Shell is Ownable, ERC721ABurnable, ERC2981 {
         returns (bool)
     {
         return super.supportsInterface(interfaceId);
+    }
+
+    // TODO:
+    function contractURI() external view returns (string memory) {
+        return "";
     }
 
     function _startTokenId() internal pure override returns (uint256) {
