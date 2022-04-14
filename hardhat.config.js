@@ -7,7 +7,11 @@ require('solidity-coverage');
 
 const axios = require('axios').default;
 
-const { CODE, RANDOMIZER, API_URL = 'http://localhost:3000' } = process.env;
+const {
+  CODE,
+  SHELL_RANDOMIZER,
+  API_URL = 'http://localhost:3000',
+} = process.env;
 
 task('setPreSaleMintTime', 'Set pre sale mint time')
   .addOptionalParam('address', `Code's address`, CODE)
@@ -112,24 +116,30 @@ task('withdraw', 'Withdraw')
   });
 
 task('shellMetadataId', 'Shell metadata ID')
-  .addOptionalParam('address', `Randomizer's address`, RANDOMIZER)
+  .addOptionalParam('address', `ShellRandomizer's address`, SHELL_RANDOMIZER)
   .addParam('id', `Shell's ID`)
   .setAction(async (args) => {
-    const randomizer = await ethers.getContractAt('Randomizer', args.address);
-    const metadataId = await randomizer.shellTokenIdToMetadataId(args.id);
+    const shellRandomizer = await ethers.getContractAt(
+      'ShellRandomizer',
+      args.address,
+    );
+    const metadataId = await shellRandomizer.shellTokenIdToMetadataId(args.id);
     console.log(metadataId.toString());
   });
 
 task('requestRevealShell', 'Request reveal shell')
-  .addOptionalParam('address', `Randomizer's address`, RANDOMIZER)
+  .addOptionalParam('address', `ShellRandomizer's address`, SHELL_RANDOMIZER)
   .addParam('id', `Shell's ID`)
   .addParam('quantity', `Quantity`)
   .addParam('from', `Revealer's address`)
   .addParam('timestamp', `Timestamp`)
   .setAction(async (args) => {
     const [owner] = await ethers.getSigners();
-    const randomizer = await ethers.getContractAt('Randomizer', args.address);
-    const tx = await randomizer
+    const shellRandomizer = await ethers.getContractAt(
+      'ShellRandomizer',
+      args.address,
+    );
+    const tx = await shellRandomizer
       .connect(owner)
       .requestRevealShell(args.id, args.quantity, args.from, args.timestamp);
     const receipt = await tx.wait();
@@ -137,13 +147,16 @@ task('requestRevealShell', 'Request reveal shell')
   });
 
 task('withdrawLINK', 'Withdraw LINK')
-  .addOptionalParam('address', `Randomizer's address`, RANDOMIZER)
+  .addOptionalParam('address', `ShellRandomizer's address`, SHELL_RANDOMIZER)
   .addParam('to', `To's address`)
   .addParam('amount', `Amount`)
   .setAction(async (args) => {
     const [owner] = await ethers.getSigners();
-    const randomizer = await ethers.getContractAt('Randomizer', args.address);
-    const tx = await randomizer
+    const shellRandomizer = await ethers.getContractAt(
+      'ShellRandomizer',
+      args.address,
+    );
+    const tx = await shellRandomizer
       .connect(owner)
       .withdrawLINK(args.to, args.amount);
     const receipt = await tx.wait();
