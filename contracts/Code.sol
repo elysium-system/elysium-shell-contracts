@@ -61,6 +61,7 @@ contract Code is Ownable, ERC1155, ERC1155Burnable, ERC2981 {
     using BitMaps for BitMaps.BitMap;
 
     uint256 public constant MAX_TOTAL_SUPPLY = 9999;
+    // TODO:
     uint256 public constant PRE_SALE_MAX_TOTAL_SUPPLY = 9999 - 1500;
     uint256 public constant MAX_NUM_MINTS_PER_TX = 3;
     uint256 public constant MAX_NUM_MIGRATIONS_PER_TX = 10;
@@ -110,7 +111,7 @@ contract Code is Ownable, ERC1155, ERC1155Burnable, ERC2981 {
         _setDefaultRoyalty(owner(), 750);
 
         // TODO:
-        uint256 reserveQuantity = 400;
+        uint256 reserveQuantity = 411;
         totalNumMintedTokens = reserveQuantity;
         _mint(owner(), nextTokenId, reserveQuantity, "");
         ++nextTokenId;
@@ -183,7 +184,7 @@ contract Code is Ownable, ERC1155, ERC1155Burnable, ERC2981 {
         uint256 whitelistMintAllowedQuantity,
         uint256 emWhitelistMintQuantity,
         uint256 emWhitelistMintAllowedQuantity,
-        uint256 snapshotedEmQuantity,
+        uint256 snapshottedEmQuantity,
         bytes calldata signature
     ) external payable onlyEOA {
         uint256 blockTime = block.timestamp;
@@ -201,7 +202,7 @@ contract Code is Ownable, ERC1155, ERC1155Burnable, ERC2981 {
                     freeMintAllowedQuantity,
                     whitelistMintAllowedQuantity,
                     emWhitelistMintAllowedQuantity,
-                    snapshotedEmQuantity
+                    snapshottedEmQuantity
                 )
             )
         );
@@ -244,7 +245,7 @@ contract Code is Ownable, ERC1155, ERC1155Burnable, ERC2981 {
 
             if (
                 em.balanceOf(msg.sender, 0) + em.balanceOf(msg.sender, 1) <
-                snapshotedEmQuantity
+                snapshottedEmQuantity
             ) {
                 revert PaperHand();
             }
