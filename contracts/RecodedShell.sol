@@ -32,6 +32,7 @@ pragma solidity ^0.8.9;
 
 import "@openzeppelin/contracts/access/Ownable.sol";
 import "erc721a/contracts/extensions/ERC721ABurnable.sol";
+import "erc721a/contracts/extensions/ERC721AQueryable.sol";
 import "@openzeppelin/contracts/token/common/ERC2981.sol";
 import "@openzeppelin/contracts/utils/structs/BitMaps.sol";
 import "@openzeppelin/contracts/utils/cryptography/MerkleProof.sol";
@@ -43,8 +44,7 @@ contract RecodedShell is Ownable, ERC721ABurnable, ERC2981 {
     using BitMaps for BitMaps.BitMap;
 
     // TODO:
-    string private _baseTokenURI =
-        "https://api.elysiumshell.xyz/recoded-shell/";
+    string private _baseTokenURI = "https://api.elysiumshell.xyz/res/";
 
     BitMaps.BitMap private _isTokenValid;
 
@@ -71,11 +71,6 @@ contract RecodedShell is Ownable, ERC721ABurnable, ERC2981 {
         returns (bool)
     {
         return super.supportsInterface(interfaceId);
-    }
-
-    // TODO:
-    function contractURI() external view returns (string memory) {
-        return "";
     }
 
     function _startTokenId() internal pure override returns (uint256) {

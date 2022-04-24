@@ -9,9 +9,24 @@ const axios = require('axios').default;
 
 const {
   CODE,
+  ESHELL,
   SHELL_RANDOMIZER,
   API_URL = 'http://localhost:3000',
 } = process.env;
+
+task('totalNumMintedTokens', 'Total # of minted tokens')
+  .addOptionalParam('address', `Code's address`, CODE)
+  .setAction(async (args) => {
+    const code = await ethers.getContractAt('Code', args.address);
+    console.log((await code.totalNumMintedTokens()).toString());
+  });
+
+task('preSaleMaxTotalSupply', 'Max total supply of pre sale')
+  .addOptionalParam('address', `Code's address`, CODE)
+  .setAction(async (args) => {
+    const code = await ethers.getContractAt('Code', args.address);
+    console.log((await code.PRE_SALE_MAX_TOTAL_SUPPLY()).toString());
+  });
 
 task('setPreSaleMintTime', 'Set pre sale mint time')
   .addOptionalParam('address', `Code's address`, CODE)
@@ -55,11 +70,22 @@ task('setMigrationTime', 'Set migration time')
 
 task('setShell', 'Set shell')
   .addOptionalParam('address', `Code's address`, CODE)
-  .addParam('shell', `Shell's address`)
+  .addOptionalParam('eshell', `Shell's address`, ESHELL)
   .setAction(async (args) => {
     const [owner] = await ethers.getSigners();
     const code = await ethers.getContractAt('Code', args.address);
-    const tx = await code.connect(owner).setShell(args.shell);
+    const tx = await code.connect(owner).setShell(args.eshell);
+    const receipt = await tx.wait();
+    console.log(receipt.transactionHash);
+  });
+
+task('shell__setAuthorized', 'Set authorized for shell')
+  .addOptionalParam('address', `Shell's address`, ESHELL)
+  .addOptionalParam('authorized', `Address to authorize`, CODE)
+  .setAction(async (args) => {
+    const [owner] = await ethers.getSigners();
+    const code = await ethers.getContractAt('Shell', args.address);
+    const tx = await code.connect(owner).setAuthorized(args.authorized, true);
     const receipt = await tx.wait();
     console.log(receipt.transactionHash);
   });
@@ -115,7 +141,7 @@ task('withdraw', 'Withdraw')
     console.log(receipt.transactionHash);
   });
 
-task('shellMetadataId', 'Shell metadata ID')
+task('shellRandomizer__tokenIdToMetadataId', 'Shell metadata ID')
   .addOptionalParam('address', `ShellRandomizer's address`, SHELL_RANDOMIZER)
   .addParam('id', `Shell's ID`)
   .setAction(async (args) => {
@@ -123,11 +149,11 @@ task('shellMetadataId', 'Shell metadata ID')
       'ShellRandomizer',
       args.address,
     );
-    const metadataId = await shellRandomizer.shellTokenIdToMetadataId(args.id);
+    const metadataId = await shellRandomizer.tokenIdToMetadataId(args.id);
     console.log(metadataId.toString());
   });
 
-task('requestRevealShell', 'Request reveal shell')
+task('shellRandomizer__requestRevealTokens', 'Request reveal shell')
   .addOptionalParam('address', `ShellRandomizer's address`, SHELL_RANDOMIZER)
   .addParam('id', `Shell's ID`)
   .addParam('quantity', `Quantity`)
@@ -141,12 +167,12 @@ task('requestRevealShell', 'Request reveal shell')
     );
     const tx = await shellRandomizer
       .connect(owner)
-      .requestRevealShell(args.id, args.quantity, args.from, args.timestamp);
+      .requestRevealTokens(args.id, args.quantity, args.from, args.timestamp);
     const receipt = await tx.wait();
     console.log(receipt.transactionHash);
   });
 
-task('withdrawLINK', 'Withdraw LINK')
+task('shellRandomizer__withdrawLINK', 'Withdraw LINK')
   .addOptionalParam('address', `ShellRandomizer's address`, SHELL_RANDOMIZER)
   .addParam('to', `To's address`)
   .addParam('amount', `Amount`)

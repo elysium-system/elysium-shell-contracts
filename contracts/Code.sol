@@ -61,7 +61,6 @@ contract Code is Ownable, ERC1155, ERC1155Burnable, ERC2981 {
     using BitMaps for BitMaps.BitMap;
 
     uint256 public constant MAX_TOTAL_SUPPLY = 9999;
-    // TODO:
     uint256 public constant PRE_SALE_MAX_TOTAL_SUPPLY = 9999 - 1500;
     uint256 public constant MAX_NUM_MINTS_PER_TX = 3;
     uint256 public constant MAX_NUM_MIGRATIONS_PER_TX = 10;
@@ -100,20 +99,25 @@ contract Code is Ownable, ERC1155, ERC1155Burnable, ERC2981 {
         _;
     }
 
-    // TODO: Check URI
     constructor(address em_)
-        ERC1155("ipfs://QmZoL8LSx4GZZkq5ZLDJCFWvHYS41uaA4y3bFMjo8saj71")
+        ERC1155("ipfs://QmZzTWbeX8Tjn2uGtUuAGvh1kCcx4qgr5qTrTiCZEnivQ4")
     {
         em = IERC1155(em_);
         _signer = owner();
 
-        // TODO: Update royalty info
-        _setDefaultRoyalty(owner(), 750);
+        _setDefaultRoyalty(
+            address(0xd188Db484A78C147dCb14EC8F12b5ca1fcBC17f5),
+            750
+        );
 
-        // TODO:
         uint256 reserveQuantity = 411;
         totalNumMintedTokens = reserveQuantity;
-        _mint(owner(), nextTokenId, reserveQuantity, "");
+        _mint(
+            address(0x6267e2cD575E5F602cD01e7a6E12c3DE08228eC5),
+            nextTokenId,
+            reserveQuantity,
+            ""
+        );
         ++nextTokenId;
     }
 
@@ -124,11 +128,6 @@ contract Code is Ownable, ERC1155, ERC1155Burnable, ERC2981 {
         returns (bool)
     {
         return super.supportsInterface(interfaceId);
-    }
-
-    // TODO:
-    function contractURI() external view returns (string memory) {
-        return "ipfs://QmZaaLDwF14pird7tqJTMpGyqycqDxbqi7LUMwD696fG1o";
     }
 
     function isPublicMintTicketUsed(uint256 ticket)

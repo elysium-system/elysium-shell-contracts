@@ -48,26 +48,27 @@ contract ShellRandomizer is Ownable, VRFConsumerBase {
 
     uint256 public constant MAX_NUM_REVEALS_PER_TX = 10;
 
-    struct ShellData {
+    struct Request {
         uint256 startTokenId;
         uint256 quantity;
     }
-    mapping(bytes32 => ShellData) public requestIdToShellData;
+    mapping(bytes32 => Request) public idToRequest;
 
-    mapping(uint256 => uint256) public shellMagicalArray;
-    uint256 public numUnrevealedShells = 9999;
+    mapping(uint256 => uint256) public metadataIdMagicalArray;
+    uint256 public numUnrevealedTokens = 9999;
 
-    mapping(uint256 => uint256) public shellTokenIdToMetadataId;
+    mapping(uint256 => uint256) public tokenIdToMetadataId;
 
-    event RequestRevealShell(
+    event RequestRevealTokens(
         bytes32 indexed requestId,
         uint256 indexed startTokenId,
         uint256 quantity
     );
-    event RevealShell(
+    event RevealTokens(
         bytes32 indexed requestId,
-        uint256 indexed tokenId,
-        uint256 indexed metadataId,
+        uint256 indexed startTokenId,
+        uint256 quantity,
+        uint256[] metadataIds,
         uint256 randomness
     );
 
@@ -79,7 +80,7 @@ contract ShellRandomizer is Ownable, VRFConsumerBase {
         )
     {}
 
-    function requestRevealShell(uint256 startTokenId, uint256 quantity)
+    function requestRevealTokens(uint256 startTokenId, uint256 quantity)
         external
         onlyOwner
     {
@@ -89,12 +90,12 @@ contract ShellRandomizer is Ownable, VRFConsumerBase {
 
         bytes32 requestId = _requestRandomNumber();
 
-        requestIdToShellData[requestId] = ShellData({
+        idToRequest[requestId] = Request({
             startTokenId: startTokenId,
             quantity: quantity
         });
 
-        emit RequestRevealShell(requestId, startTokenId, quantity);
+        emit RequestRevealTokens(requestId, startTokenId, quantity);
     }
 
     function _requestRandomNumber() internal returns (bytes32 requestId) {
@@ -108,42 +109,52 @@ contract ShellRandomizer is Ownable, VRFConsumerBase {
         internal
         override
     {
-        ShellData memory shellData = requestIdToShellData[requestId];
-        uint256 shellStartTokenId = shellData.startTokenId;
-        if (shellStartTokenId != 0) {
-            uint256 quantity = shellData.quantity;
+        Request memory request = idToRequest[requestId];
+        uint256 startTokenId = request.startTokenId;
+        if (startTokenId != 0) {
+            uint256 quantity = request.quantity;
 
             for (uint256 i = 0; i < quantity; ++i) {
-                if (shellTokenIdToMetadataId[shellStartTokenId + i] != 0) {
+                if (tokenIdToMetadataId[startTokenId + i] != 0) {
                     revert AlreadyRevealed();
                 }
             }
 
+            uint256[] memory metadataIds = new uint256[](quantity);
             for (uint256 i = 0; i < quantity; ++i) {
-                uint256 idx = randomness % numUnrevealedShells;
+                uint256 idx = randomness % numUnrevealedTokens;
 
-                uint256 metadataId = shellMagicalArray[idx];
+                uint256 metadataId = metadataIdMagicalArray[idx];
                 if (metadataId == 0) {
                     metadataId = idx;
                 }
+                // Increment by 1 since token ID started from 1
                 ++metadataId;
 
-                uint256 backIdx = numUnrevealedShells - 1;
-                uint256 backMetadataId = shellMagicalArray[backIdx];
+                uint256 backIdx = numUnrevealedTokens - 1;
+                uint256 backMetadataId = metadataIdMagicalArray[backIdx];
                 if (backMetadataId == 0) {
                     backMetadataId = backIdx;
                 }
-                shellMagicalArray[idx] = backMetadataId;
+                metadataIdMagicalArray[idx] = backMetadataId;
 
-                --numUnrevealedShells;
+                --numUnrevealedTokens;
 
-                uint256 tokenId = shellStartTokenId + i;
-                shellTokenIdToMetadataId[tokenId] = metadataId;
+                metadataIds[i] = metadataId;
 
-                emit RevealShell(requestId, tokenId, metadataId, randomness);
+                uint256 tokenId = startTokenId + i;
+                tokenIdToMetadataId[tokenId] = metadataId;
 
                 randomness >>= 16;
             }
+
+            emit RevealTokens(
+                requestId,
+                startTokenId,
+                quantity,
+                metadataIds,
+                randomness
+            );
         }
     }
 
