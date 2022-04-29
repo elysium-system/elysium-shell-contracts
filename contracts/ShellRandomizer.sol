@@ -41,9 +41,8 @@ error RequestRevealTooManyAtOnce();
 contract ShellRandomizer is Ownable, VRFConsumerBase {
     using BitMaps for BitMaps.BitMap;
 
-    // TODO:
     bytes32 private constant _KEY_HASH =
-        0x6e75b569a01ef56d18cab6a8e71e6600d6ce853834d4a5748b720d06f878b3a4;
+        0xf86195cf7690c55907b2b611ebb7343a6f649bff128701cc542f0569e2c549da;
     uint256 private constant _FEE = 0.0001 * 10**18;
 
     uint256 public constant MAX_NUM_REVEALS_PER_TX = 10;
@@ -73,10 +72,9 @@ contract ShellRandomizer is Ownable, VRFConsumerBase {
     );
 
     constructor()
-        // TODO:
         VRFConsumerBase(
-            0x8C7382F9D8f56b33781fE506E897a4F1e2d17255,
-            0x326C977E6efc84E512bB9C30f76E30c160eD06FB
+            0x3d2341ADb2D31f1c5530cDC622016af293177AE0,
+            0xb0897686c545045aFc77CF20eC7A532E3120E0F1
         )
     {}
 
@@ -86,6 +84,12 @@ contract ShellRandomizer is Ownable, VRFConsumerBase {
     {
         if (quantity > MAX_NUM_REVEALS_PER_TX) {
             revert RequestRevealTooManyAtOnce();
+        }
+
+        for (uint256 i = 0; i < quantity; ++i) {
+            if (tokenIdToMetadataId[startTokenId + i] != 0) {
+                revert AlreadyRevealed();
+            }
         }
 
         bytes32 requestId = _requestRandomNumber();

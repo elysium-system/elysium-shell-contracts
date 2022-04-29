@@ -90,6 +90,17 @@ task('shell__setAuthorized', 'Set authorized for shell')
     console.log(receipt.transactionHash);
   });
 
+task('shell__setBaseTokenURI', 'Set base token URI for shell')
+  .addOptionalParam('address', `Shell's address`, ESHELL)
+  .addOptionalParam('uri', `Token URI`)
+  .setAction(async (args) => {
+    const [owner] = await ethers.getSigners();
+    const code = await ethers.getContractAt('Shell', args.address);
+    const tx = await code.connect(owner).setBaseTokenURI(args.uri);
+    const receipt = await tx.wait();
+    console.log(receipt.transactionHash);
+  });
+
 task('publicSaleMint', 'Public sale mint')
   .addOptionalParam('address', `Code's address`, CODE)
   .addOptionalParam('index', `Account's index`, 0, types.int)

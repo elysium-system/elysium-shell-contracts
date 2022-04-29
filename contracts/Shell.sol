@@ -43,14 +43,13 @@ error InvalidToken();
 contract Shell is Ownable, ERC721ABurnable, ERC721AQueryable, ERC2981 {
     using BitMaps for BitMaps.BitMap;
 
-    // TODO:
     string private _baseTokenURI = "https://api.elysiumshell.xyz/es/";
 
     BitMaps.BitMap private _isTokenInvalid;
 
     mapping(address => bool) private _isAuthorized;
 
-    bytes32 provenanceMerkleRoot;
+    bytes32 public provenanceMerkleRoot;
 
     modifier onlyAuthorized() {
         if (!_isAuthorized[msg.sender]) {
@@ -60,8 +59,10 @@ contract Shell is Ownable, ERC721ABurnable, ERC721AQueryable, ERC2981 {
     }
 
     constructor() ERC721A("E-Shell", "ES") {
-        // TODO: Update royalty info
-        _setDefaultRoyalty(owner(), 750);
+        _setDefaultRoyalty(
+            address(0xd188Db484A78C147dCb14EC8F12b5ca1fcBC17f5),
+            750
+        );
     }
 
     function supportsInterface(bytes4 interfaceId)
